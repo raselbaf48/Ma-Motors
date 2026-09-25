@@ -1,0 +1,6 @@
+{
+  "name": "MotoPrime Recondition Bike Showroom",
+  "description": "Premium certified pre-owned and recondition motorcycle showroom. Verified multi-point inspection, EMI financing, instant valuation, and bike comparison.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
