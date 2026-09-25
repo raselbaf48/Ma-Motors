@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bike, ConditionGrade, AdditionalCostItem, AdditionalCostCategory } from '../types/bike';
+import { Bike } from '../types/bike';
 import { formatBDT } from '../utils/formatters';
 import { BikeVisual } from '../components/common/BikeVisual';
 import { 
@@ -11,13 +11,7 @@ import {
   Zap,
   Tag,
   Camera,
-  Trash2,
-  Wrench,
-  Sparkles,
-  Droplets,
-  DollarSign,
-  Check,
-  AlertCircle
+  Trash2
 } from 'lucide-react';
 
 interface StockViewProps {
@@ -27,6 +21,7 @@ interface StockViewProps {
   onUpdateBike: (bike: Bike) => void;
   onDeleteBike: (bikeId: string) => void;
   onNavigateToDetails: () => void;
+  onNavigateToAddBike?: () => void;
   isAddModalOpen?: boolean;
   onCloseAddModal?: () => void;
 }
@@ -38,6 +33,7 @@ export const StockView: React.FC<StockViewProps> = ({
   onUpdateBike,
   onDeleteBike,
   onNavigateToDetails,
+  onNavigateToAddBike,
   isAddModalOpen = false,
   onCloseAddModal
 }) => {
@@ -47,14 +43,6 @@ export const StockView: React.FC<StockViewProps> = ({
 
   // Modal state for Add Bike
   const [isModalOpen, setIsModalOpen] = useState(isAddModalOpen);
-
-  // Preparation cost modal state (Service, Wash, Polish, Parts, etc.)
-  const [prepBike, setPrepBike] = useState<Bike | null>(null);
-  const [prepCategory, setPrepCategory] = useState<AdditionalCostCategory>('Service');
-  const [prepDescription, setPrepDescription] = useState('');
-  const [prepAmount, setPrepAmount] = useState<number>(1000);
-  const [prepDate, setPrepDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [prepSuccessMsg, setPrepSuccessMsg] = useState('');
 
   // Form State
   const [formBrand, setFormBrand] = useState('Yamaha');
@@ -88,6 +76,10 @@ export const StockView: React.FC<StockViewProps> = ({
   const inStockList = bikes.filter((b) => b.status !== 'Sold');
   const totalCost = inStockList.reduce((acc, b) => acc + (b.buyingPrice || 0), 0);
   const totalAsking = inStockList.reduce((acc, b) => acc + (b.askingPrice || b.price), 0);
+  const totalPrepCost = inStockList.reduce(
+    (acc, b) => acc + (b.totalAdditionalCost || b.additionalCosts?.reduce((s, c) => s + c.amount, 0) || 0),
+    0
+  );
 
   const uniqueBrands = ['ALL', ...Array.from(new Set(bikes.map((b) => b.brand)))];
 
@@ -117,62 +109,6 @@ export const StockView: React.FC<StockViewProps> = ({
 
   const handleRemovePhoto = (idxToRemove: number) => {
     setFormImages((prev) => prev.filter((_, idx) => idx !== idxToRemove));
-  };
-
-  const handleOpenPrepModal = (bike: Bike, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setPrepBike(bike);
-    setPrepCategory('Service');
-    setPrepDescription('');
-    setPrepAmount(1000);
-    setPrepDate(new Date().toISOString().split('T')[0]);
-    setPrepSuccessMsg('');
-  };
-
-  const handleAddPrepCost = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prepBike || prepAmount <= 0) return;
-
-    const newCost: AdditionalCostItem = {
-      id: `cost-${Date.now()}`,
-      category: prepCategory,
-      description: prepDescription.trim() || `${prepCategory} Charge`,
-      amount: Number(prepAmount),
-      date: prepDate || new Date().toISOString().split('T')[0]
-    };
-
-    const currentCosts = prepBike.additionalCosts || [];
-    const updatedCosts = [...currentCosts, newCost];
-    const totalCost = updatedCosts.reduce((s, c) => s + c.amount, 0);
-
-    const updatedBike: Bike = {
-      ...prepBike,
-      additionalCosts: updatedCosts,
-      totalAdditionalCost: totalCost
-    };
-
-    onUpdateBike(updatedBike);
-    setPrepBike(updatedBike);
-    setPrepDescription('');
-    setPrepAmount(1000);
-    setPrepSuccessMsg(`${prepCategory} খরচ (${formatBDT(newCost.amount)}) সফলভাবে যোগ করা হয়েছে!`);
-    setTimeout(() => setPrepSuccessMsg(''), 3000);
-  };
-
-  const handleRemovePrepCost = (costId: string) => {
-    if (!prepBike) return;
-    const currentCosts = prepBike.additionalCosts || [];
-    const updatedCosts = currentCosts.filter((c) => c.id !== costId);
-    const totalCost = updatedCosts.reduce((s, c) => s + c.amount, 0);
-
-    const updatedBike: Bike = {
-      ...prepBike,
-      additionalCosts: updatedCosts,
-      totalAdditionalCost: totalCost
-    };
-
-    onUpdateBike(updatedBike);
-    setPrepBike(updatedBike);
   };
 
   const handleSubmitForm = (e: React.FormEvent) => {
@@ -260,8 +196,14 @@ export const StockView: React.FC<StockViewProps> = ({
         </div>
 
         <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+          onClick={() => {
+            if (onNavigateToAddBike) {
+              onNavigateToAddBike();
+            } else {
+              handleOpenAdd();
+            }
+          }}
+          className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Add Bike</span>
@@ -269,7 +211,7 @@ export const StockView: React.FC<StockViewProps> = ({
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
           <div className="text-[11px] text-slate-400">Total in Collection</div>
           <div className="text-xl font-bold text-white font-mono mt-1">
@@ -278,16 +220,23 @@ export const StockView: React.FC<StockViewProps> = ({
         </div>
 
         <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
-          <div className="text-[11px] text-slate-400">Total Collection Value</div>
-          <div className="text-xl font-bold text-emerald-400 font-mono mt-1">
-            {formatBDT(totalAsking)}
-          </div>
-        </div>
-
-        <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow col-span-2 sm:col-span-1">
           <div className="text-[11px] text-slate-400">Procurement Cost</div>
           <div className="text-xl font-bold text-slate-300 font-mono mt-1">
             {formatBDT(totalCost)}
+          </div>
+        </div>
+
+        <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+          <div className="text-[11px] text-slate-400">Total Prep Cost (রেডি খরচ)</div>
+          <div className="text-xl font-bold text-cyan-400 font-mono mt-1">
+            +{formatBDT(totalPrepCost)}
+          </div>
+        </div>
+
+        <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+          <div className="text-[11px] text-slate-400">Total Collection Value</div>
+          <div className="text-xl font-bold text-emerald-400 font-mono mt-1">
+            {formatBDT(totalAsking)}
           </div>
         </div>
       </div>
@@ -465,10 +414,10 @@ export const StockView: React.FC<StockViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Price Box - Big Price and Preparation Cost Button */}
-                  <div className="pt-3 border-t border-slate-800/80 space-y-2.5">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                  {/* Price & Details Row */}
+                  <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
                         Price
                       </span>
                       <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono tracking-tight drop-shadow-sm">
@@ -476,34 +425,19 @@ export const StockView: React.FC<StockViewProps> = ({
                       </span>
                     </div>
 
-                    {/* Additional Preparation Cost Button (Service, Wash, Polish, Parts) */}
-                    <div 
-                      onClick={(e) => handleOpenPrepModal(bike, e)}
-                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all cursor-pointer ${
-                        (bike.additionalCosts?.length ?? 0) > 0
-                          ? 'bg-slate-950 border-cyan-500/40 hover:border-cyan-400 hover:bg-slate-900 shadow-sm'
-                          : 'bg-slate-950/60 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900 text-slate-400'
-                      }`}
-                      title="বাইকটি বিক্রির জন্য রেডি করতে অতিরিক্ত খরচ (সার্ভিস, ওয়াশ, পলিশ ইত্যাদি) যোগ করুন"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <div className="p-1 rounded-lg bg-cyan-500/10 text-cyan-400 shrink-0">
-                          <Wrench className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="truncate">
-                          <div className="text-[10px] text-slate-400 font-medium">Preparation Cost (রেডি খরচ)</div>
+                    <div className="text-right">
+                      {(bike.additionalCosts?.length ?? 0) > 0 ? (
+                        <div>
+                          <div className="text-[10px] text-slate-400 font-medium">Addl Cost</div>
                           <div className="font-mono text-cyan-300 font-bold text-xs">
-                            {(bike.additionalCosts?.length ?? 0) > 0
-                              ? `+${formatBDT(bike.totalAdditionalCost || bike.additionalCosts?.reduce((s, c) => s + c.amount, 0) || 0)}`
-                              : '+ খরচ যোগ করুন (সার্ভিস, ওয়াশ, পলিশ)'
-                            }
+                            +{formatBDT(bike.totalAdditionalCost || bike.additionalCosts?.reduce((s, c) => s + c.amount, 0) || 0)}
                           </div>
                         </div>
-                      </div>
-
-                      <span className="text-[10px] font-mono text-cyan-400 font-bold shrink-0 ml-1.5 bg-cyan-950/80 px-2 py-1 rounded-md border border-cyan-500/30 hover:bg-cyan-500 hover:text-slate-950 transition-colors">
-                        {(bike.additionalCosts?.length ?? 0) > 0 ? `${bike.additionalCosts?.length} টি এন্ট্রি ✎` : '+ Add'}
-                      </span>
+                      ) : (
+                        <span className="text-xs text-slate-400 group-hover:text-cyan-400 transition-colors font-medium">
+                          Details →
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

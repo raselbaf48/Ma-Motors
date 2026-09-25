@@ -9,6 +9,7 @@ export interface BikeSpecs {
   frontBrake: string;
   rearBrake: string;
   absType: string;
+  fuelSupply?: 'FI' | 'Carburetor' | 'Electric';
   tyreConditionPct: number;
   batteryHealthPct: number;
 }
@@ -65,10 +66,11 @@ export interface Bike {
   conditionGrade: ConditionGrade;
   conditionLabel: string;
   fuelType: 'Petrol' | 'Electric' | 'Hybrid';
+  fuelSupply?: 'FI' | 'Carburetor' | 'Electric';
   transmission: 'Manual' | 'Automatic' | 'Quickshifter';
   color: string;
   colorHex: string;
-  category: 'Sport' | 'Cruiser' | 'Naked' | 'Commuter' | 'Tourer';
+  category: 'Sport' | 'Cruiser' | 'Naked' | 'Commuter' | 'Tourer' | 'Scooter';
   featured: boolean;
   inStock: boolean;
   status: 'Available' | 'Reserved' | 'Sold';
@@ -76,9 +78,23 @@ export interface Bike {
   registrationCity: string;
   ownersCount: number;
   warrantyMonths: number;
+  smartCardStatus?: 'Yes' | 'No' | 'Pending';
+  fingerprintDone?: 'Yes' | 'No';
+  uploadedDocuments?: { id: string; name: string; size: string; type: string; url?: string }[];
+  sellerInfo?: SellerInfo;
   images: string[];
   specs: BikeSpecs;
   inspection: InspectionReport;
+}
+
+export interface SellerInfo {
+  name: string;
+  phone: string;
+  nid?: string;
+  address?: string;
+  purchaseDate?: string;
+  memoOrStampNo?: string;
+  notes?: string;
 }
 
 export interface CustomerInquiry {
@@ -191,6 +207,8 @@ export type ActivePage =
   | 'contact'
   | 'settings'
   | 'details'
+  | 'cost'
+  | 'add-bike'
   | 'home' 
   | 'inventory' 
   | 'compare' 

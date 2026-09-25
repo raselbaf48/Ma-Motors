@@ -23,7 +23,8 @@ import {
   FileText,
   Eye,
   ExternalLink,
-  Tag
+  Tag,
+  User
 } from 'lucide-react';
 
 interface BikeDetailsPageProps {
@@ -478,6 +479,61 @@ export const BikeDetailsPage: React.FC<BikeDetailsPageProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Sourced Seller Information (বিক্রেতার তথ্য) */}
+            {bike.sellerInfo && (
+              <div className="bg-slate-950 rounded-xl border border-slate-800 divide-y divide-slate-800/80 text-xs">
+                <div className="p-3 font-bold text-slate-200 bg-slate-900/60 uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-cyan-400" />
+                    <span>Sourced Seller Record (বাইক বিক্রেতার তথ্য)</span>
+                  </span>
+                  <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                    Sourced Direct
+                  </span>
+                </div>
+                <div className="p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Seller Name (বিক্রেতার নাম):</span>
+                    <span className="font-semibold text-white text-sm">{bike.sellerInfo.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Mobile Phone (মোবাইল নম্বর):</span>
+                    <span className="font-mono text-cyan-400 font-bold">{bike.sellerInfo.phone}</span>
+                  </div>
+                  {bike.sellerInfo.nid && (
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">National ID (এনআইডি):</span>
+                      <span className="font-mono text-slate-200">{bike.sellerInfo.nid}</span>
+                    </div>
+                  )}
+                  {bike.sellerInfo.purchaseDate && (
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Acquisition Date (ক্রয়ের তারিখ):</span>
+                      <span className="font-mono text-slate-200">{bike.sellerInfo.purchaseDate}</span>
+                    </div>
+                  )}
+                  {bike.sellerInfo.memoOrStampNo && (
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Stamp / Memo No (চুক্তি স্ট্যাম্প নং):</span>
+                      <span className="font-mono text-emerald-400 font-semibold">{bike.sellerInfo.memoOrStampNo}</span>
+                    </div>
+                  )}
+                  {bike.sellerInfo.address && (
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Address (ঠিকানা):</span>
+                      <span className="text-slate-300">{bike.sellerInfo.address}</span>
+                    </div>
+                  )}
+                </div>
+                {bike.sellerInfo.notes && (
+                  <div className="p-3 bg-slate-900/40">
+                    <span className="text-slate-400 block text-[11px] mb-1">Agreement / Seller Notes (চুক্তির নোট):</span>
+                    <p className="text-slate-300 italic">{bike.sellerInfo.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

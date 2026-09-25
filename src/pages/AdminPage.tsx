@@ -76,7 +76,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [formCc, setFormCc] = useState(155);
   const [formMileage, setFormMileage] = useState(6500);
   const [formGrade, setFormGrade] = useState<ConditionGrade>('A+');
-  const [formCategory, setFormCategory] = useState<'Sport' | 'Cruiser' | 'Naked' | 'Commuter' | 'Tourer'>('Sport');
+  const [formCategory, setFormCategory] = useState<'Sport' | 'Cruiser' | 'Naked' | 'Commuter' | 'Tourer' | 'Scooter'>('Sport');
   const [formStatus, setFormStatus] = useState<'Available' | 'Reserved' | 'Sold'>('Available');
 
   // Document preview state

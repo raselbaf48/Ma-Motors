@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bike, SaleRecord } from '../types/bike';
+import { Bike, SaleRecord, AdditionalCostCategory, AdditionalCostItem } from '../types/bike';
 import { formatBDT } from '../utils/formatters';
 import { BikeVisual } from '../components/common/BikeVisual';
 import { 
@@ -19,7 +19,10 @@ import {
   Calendar,
   Tag,
   Share2,
-  ExternalLink
+  ExternalLink,
+  Wrench,
+  Droplets,
+  Sparkles
 } from 'lucide-react';
 
 interface BikeDetailViewProps {
@@ -28,6 +31,9 @@ interface BikeDetailViewProps {
   onUpdateBike: (bike: Bike) => void;
   onRecordSale: (sale: SaleRecord) => void;
   onNavigateToSales: () => void;
+  onNavigateToCost?: () => void;
+  showroomName?: string;
+  logoUrl?: string;
 }
 
 export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
@@ -35,8 +41,12 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
   onBack,
   onUpdateBike,
   onRecordSale,
-  onNavigateToSales
+  onNavigateToSales,
+  onNavigateToCost,
+  showroomName = 'Ma Motors',
+  logoUrl
 }) => {
+  const [logoError, setLogoError] = useState(false);
   const isSold = bike.status === 'Sold';
   const effectiveAskingPrice = bike.askingPrice || bike.price || 0;
   const effectiveBuyingPrice = bike.buyingPrice || Math.round(effectiveAskingPrice * 0.82);
@@ -73,7 +83,10 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
   const [editImages, setEditImages] = useState<string[]>(bike.images || []);
   const [newImageUrl, setNewImageUrl] = useState('');
 
-  const calculatedProfit = salePrice - effectiveBuyingPrice;
+  const totalPrepCost = bike.additionalCosts?.reduce((sum, c) => sum + c.amount, 0) || bike.totalAdditionalCost || 0;
+  const totalShowroomInvestment = effectiveBuyingPrice + totalPrepCost;
+  const calculatedProfit = salePrice - totalShowroomInvestment;
+  const projectedMargin = effectiveAskingPrice - totalShowroomInvestment;
 
   // Photo gallery helpers
   const validImages = (bike.images || []).filter(img => 
@@ -196,11 +209,40 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
             
             <button
               onClick={handleOpenEdit}
-              className="px-4 py-2 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-850 hover:to-slate-750 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-850 hover:to-slate-750 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
             >
               <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Edit Details & Photos</span>
+              <span className="hidden sm:inline">Edit Details & Photos</span>
+              <span className="sm:hidden">Edit</span>
             </button>
+
+            {/* Showroom Logo in Right Corner - Large & Prominent */}
+            <div 
+              className="pl-2 sm:pl-3.5 border-l border-slate-800 flex items-center gap-2.5 shrink-0 cursor-pointer group"
+              onClick={onBack}
+              title={`${showroomName} - Showroom Logo`}
+            >
+              {logoUrl && !logoError ? (
+                <img 
+                  src={logoUrl} 
+                  alt={showroomName} 
+                  onError={() => setLogoError(true)} 
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover border-2 border-cyan-500/50 shadow-md shadow-cyan-500/20 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 
+                />
+              ) : (
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-base sm:text-xl shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform shrink-0">
+                  M
+                </div>
+              )}
+              <div className="hidden md:block text-left leading-tight">
+                <span className="text-xs sm:text-sm font-bold text-white block group-hover:text-cyan-300 transition-colors">
+                  {showroomName}
+                </span>
+                <span className="text-[10px] text-cyan-400 block font-semibold uppercase tracking-wider mt-0.5">
+                  Showroom
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -366,7 +408,7 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
         </div>
 
         {/* Showroom Cost & Valuation Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
             <div className="text-xs text-slate-400">Showroom Buying Cost</div>
             <div className="text-xl font-bold text-slate-300 font-mono mt-1">
@@ -375,21 +417,113 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
             <div className="text-[11px] text-slate-500 mt-0.5">Procurement amount</div>
           </div>
 
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl relative group">
+            <div className="text-xs text-slate-400 flex items-center justify-between">
+              <span>Additional Cost (অতিরিক্ত খরচ)</span>
+              <button
+                type="button"
+                onClick={() => onNavigateToCost?.()}
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold bg-cyan-950 px-2 py-0.5 rounded border border-cyan-500/30 hover:border-cyan-400 cursor-pointer flex items-center gap-1"
+                title="অতিরিক্ত খরচের আলাদা পেজ ওপেন করুন"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add Cost</span>
+              </button>
+            </div>
+            <div className="text-xl font-bold text-cyan-400 font-mono mt-1">
+              +{formatBDT(totalPrepCost)}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              {bike.additionalCosts?.length || 0} entries (Service, Wash, Parts)
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+            <div className="text-xs text-slate-400">Total Showroom Investment</div>
+            <div className="text-xl font-bold text-amber-300 font-mono mt-1">
+              {formatBDT(totalShowroomInvestment)}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Buying + Additional Cost</div>
+          </div>
+
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
             <div className="text-xs text-slate-400">Target Asking Price</div>
             <div className="text-xl font-bold text-emerald-400 font-mono mt-1">
               {formatBDT(effectiveAskingPrice)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Showroom list price</div>
+            <div className="text-[11px] text-emerald-400 font-medium mt-0.5">
+              Margin: {projectedMargin >= 0 ? `+${formatBDT(projectedMargin)}` : formatBDT(projectedMargin)}
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Cost Breakdown Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <Wrench className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Additional Cost (অতিরিক্ত প্রস্তুতি ও সার্ভিস খরচ)</span>
+                  <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-500/30">
+                    +{formatBDT(totalPrepCost)}
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  সার্ভিসিং, ওয়াশ, পলিশ, পার্টস বদলানোর যাবতীয় অতিরিক্ত খরচ
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigateToCost?.()}
+              className="px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{bike.additionalCosts && bike.additionalCosts.length > 0 ? 'Manage on Cost Page' : 'Add Additional Cost'}</span>
+            </button>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-            <div className="text-xs text-slate-400">Projected Margin</div>
-            <div className="text-xl font-bold text-cyan-400 font-mono mt-1">
-              +{formatBDT(effectiveAskingPrice - effectiveBuyingPrice)}
+          {(!bike.additionalCosts || bike.additionalCosts.length === 0) ? (
+            <div className="p-4 bg-slate-950/60 rounded-xl border border-dashed border-slate-800 text-center text-xs text-slate-500">
+              কোনো অতিরিক্ত খরচ এখনো যুক্ত করা হয়নি। সার্ভিসিং, ওয়াশ, পার্টস ইত্যাদি খরচ যোগ করতে 
+              <button 
+                type="button" 
+                onClick={() => onNavigateToCost?.()} 
+                className="text-cyan-400 font-semibold underline ml-1 hover:text-cyan-300 cursor-pointer"
+              >
+                Add Additional Cost এ ক্লিক করুন
+              </button>
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Estimated gross profit</div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+              {bike.additionalCosts.map((c) => (
+                <div key={c.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        c.category === 'Service' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                        c.category === 'Wash' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' :
+                        c.category === 'Polish' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                        c.category === 'Parts' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                        c.category === 'Repair' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                        'bg-slate-800 text-slate-300'
+                      }`}>
+                        {c.category}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-mono">{c.date}</span>
+                    </div>
+                    <div className="text-slate-200 mt-1 font-medium truncate max-w-[160px]">{c.description}</div>
+                  </div>
+                  <div className="font-mono font-bold text-cyan-300 text-sm">
+                    +{formatBDT(c.amount)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* BOTTOM SALE ACTION BAR (Pic/Sale er interface agei show hbe na, Sale This Bike click korle open hbe) */}
@@ -523,16 +657,21 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1">Buying Cost (৳)</label>
+                  <label className="text-slate-400 block mb-1">Total Showroom Cost (৳)</label>
                   <div className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-300 font-mono text-sm font-semibold">
-                    {formatBDT(effectiveBuyingPrice)}
+                    {formatBDT(totalShowroomInvestment)}
+                    {totalPrepCost > 0 && (
+                      <span className="text-[10px] text-cyan-400 block font-normal">
+                        ({formatBDT(effectiveBuyingPrice)} + {formatBDT(totalPrepCost)} prep)
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <label className="text-slate-400 block mb-1">Realized Profit (৳)</label>
-                  <div className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-cyan-400 font-mono font-bold text-sm">
-                    +{formatBDT(calculatedProfit)}
+                  <div className={`p-2 bg-slate-900 border border-slate-800 rounded-lg font-mono font-bold text-sm ${calculatedProfit >= 0 ? 'text-cyan-400' : 'text-red-400'}`}>
+                    {calculatedProfit >= 0 ? `+${formatBDT(calculatedProfit)}` : formatBDT(calculatedProfit)}
                   </div>
                 </div>
               </div>
@@ -832,6 +971,7 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
           </div>
         </div>
       )}
+
     </div>
   );
 };

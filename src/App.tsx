@@ -27,6 +27,8 @@ import { SellView } from './pages/SellView';
 import { ContactView } from './pages/ContactView';
 import { SettingsView } from './pages/SettingsView';
 import { BikeDetailView } from './pages/BikeDetailView';
+import { AdditionalCostPage } from './pages/AdditionalCostPage';
+import { AddBikePage } from './pages/AddBikePage';
 
 export default function App() {
   // Navigation: Default to 'dashboard' (Option 1)
@@ -214,6 +216,40 @@ export default function App() {
     }
   };
 
+  // Dedicated Full-Page Add Bike View (No Sidebar, No TopBar, pure dedicated page)
+  if (currentPage === 'add-bike') {
+    return (
+      <div key="add-bike-page" className="animate-page-enter min-h-screen bg-slate-950">
+        <AddBikePage
+          onBack={() => setCurrentPage('stock')}
+          onAddBike={(newBike) => {
+            handleAddBikeToStock(newBike);
+          }}
+          showroomName={settings.showroomName || 'Ma Motors'}
+          logoUrl={settings.logoUrl}
+        />
+      </div>
+    );
+  }
+
+  // Dedicated Full-Page Additional Cost Management View (No Sidebar, No TopBar, pure dedicated page)
+  if (currentPage === 'cost' && selectedBike) {
+    return (
+      <div key={`cost-${selectedBike.id}`} className="animate-page-enter min-h-screen bg-slate-950">
+        <AdditionalCostPage
+          bike={selectedBike}
+          onBack={() => setCurrentPage('details')}
+          onUpdateBike={(updatedBike) => {
+            handleUpdateBike(updatedBike);
+            setSelectedBike(updatedBike);
+          }}
+          showroomName={settings.showroomName || 'Ma Motors'}
+          logoUrl={settings.logoUrl}
+        />
+      </div>
+    );
+  }
+
   // Dedicated Full-Page Bike Details View (No Sidebar, No TopBar, pure independent page with animation)
   if (currentPage === 'details' && selectedBike) {
     return (
@@ -236,6 +272,9 @@ export default function App() {
             setSelectedBike(updatedBike);
           }}
           onNavigateToSales={() => setCurrentPage('sell')}
+          onNavigateToCost={() => setCurrentPage('cost')}
+          showroomName={settings.showroomName || 'Ma Motors'}
+          logoUrl={settings.logoUrl}
         />
       </div>
     );
@@ -306,6 +345,7 @@ export default function App() {
                 onUpdateBike={handleUpdateBike}
                 onDeleteBike={handleDeleteBike}
                 onNavigateToDetails={() => setCurrentPage('details')}
+                onNavigateToAddBike={() => setCurrentPage('add-bike')}
                 isAddModalOpen={isStockAddModalOpen}
                 onCloseAddModal={() => setIsStockAddModalOpen(false)}
               />

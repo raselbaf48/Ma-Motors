@@ -72,34 +72,14 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
           </button>
 
           <div className="flex items-center gap-2.5">
-            {logoUrl && !logoError && (
-              <img 
-                src={logoUrl} 
-                alt={showroomName} 
-                onError={() => setLogoError(true)} 
-                className="w-7 h-7 rounded-lg object-cover border border-cyan-500/40 hidden sm:block" 
-              />
-            )}
-            <h1 className="text-lg font-bold text-white tracking-tight font-display">
+            <h1 className="text-base sm:text-lg font-bold text-white tracking-tight font-display truncate">
               {getPageTitle()}
             </h1>
-            <span className="text-slate-600 text-sm hidden sm:inline">|</span>
-            <span className="text-xs text-slate-400 hidden sm:inline font-medium">
-              {showroomName}
-            </span>
           </div>
         </div>
 
-        {/* Right: Quick Actions */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => onNavigate('stock')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-slate-300 hover:border-slate-700 transition-colors"
-          >
-            <span className="text-slate-400">In Stock:</span>
-            <span className="font-bold text-cyan-400">{inStockCount}</span>
-          </button>
-
+        {/* Right: Quick Actions & Showroom Logo at the Right Corner */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <a
             href={`tel:${hotline}`}
             className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-slate-300 hover:text-white transition-colors"
@@ -108,25 +88,34 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
             <span>{hotline}</span>
           </a>
 
-          {currentPage === 'stock' && onQuickAddBike && (
-            <button
-              onClick={onQuickAddBike}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Bike</span>
-            </button>
-          )}
-
-          {currentPage === 'purchase' && onQuickAddPurchase && (
-            <button
-              onClick={onQuickAddPurchase}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Purchase</span>
-            </button>
-          )}
+          {/* Showroom Logo in the Right Corner for all sidebar options - Large & Prominent */}
+          <button
+            type="button"
+            onClick={() => onNavigate('dashboard')}
+            className="flex items-center gap-2.5 pl-2 sm:pl-3.5 border-l border-slate-800/80 cursor-pointer group shrink-0"
+            title={`${showroomName} - Showroom Logo`}
+          >
+            {logoUrl && !logoError ? (
+              <img 
+                src={logoUrl} 
+                alt={showroomName} 
+                onError={() => setLogoError(true)} 
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover border-2 border-cyan-500/50 shadow-md shadow-cyan-500/20 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 
+              />
+            ) : (
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-base sm:text-xl shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform shrink-0">
+                M
+              </div>
+            )}
+            <div className="hidden sm:block text-left leading-tight">
+              <span className="text-xs sm:text-sm font-bold text-white block group-hover:text-cyan-300 transition-colors truncate max-w-[130px]">
+                {showroomName}
+              </span>
+              <span className="text-[10px] text-cyan-400 block font-semibold uppercase tracking-wider mt-0.5">
+                Showroom
+              </span>
+            </div>
+          </button>
         </div>
       </div>
     </header>

@@ -260,42 +260,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Top Showroom Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-sm">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-display">
-            {showroomName}
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Month-Wise Visual Analytics (মাসভিত্তিক চার্ট ও হিসাব)
-          </p>
-        </div>
-
-        {/* Quick Nav Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onNavigate('stock')}
-            className="px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 shadow"
-          >
-            <BikeIcon className="w-4 h-4" />
-            <span>Our Collection ({inStockBikes.length})</span>
-          </button>
-          <button
-            onClick={onOpenAddPurchaseModal}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5"
-            title="শো-রুমের জন্য নতুন বাইক কিনুন (স্টক ইন)"
-          >
-            <ArrowDownLeft className="w-4 h-4 text-cyan-400" />
-            <span>+ Purchase (বাইক কেনা)</span>
-          </button>
-          <button
-            onClick={() => onNavigate('sell')}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5"
-            title="শো-রুম থেকে কাস্টমারের কাছে বাইক বিক্রি করুন"
-          >
-            <ArrowUpRight className="w-4 h-4 text-emerald-400" />
-            <span>Sales (বাইক বিক্রি)</span>
-          </button>
-        </div>
+      <div className="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm">
+        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-display">
+          {showroomName}
+        </h2>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Showroom Overview & Performance
+        </p>
       </div>
 
       {/* 4 Clean High-Level Overview Cards */}
@@ -309,28 +280,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>In-Stock Value</span>
             <BikeIcon className="w-4 h-4 text-cyan-400" />
           </div>
-          <div className="text-2xl font-bold font-mono text-white mt-2">
+          <div className="text-xl sm:text-2xl font-bold font-mono text-white mt-2">
             {formatBDT(totalStockAskingValue)}
           </div>
-          <div className="text-xs text-slate-400 mt-1">
-            স্টকে বিদ্যমান: <span className="font-mono text-cyan-400 font-semibold">{inStockBikes.length} টি বাইক</span>
+          <div className="text-xs text-cyan-400 font-medium mt-1 font-mono">
+            {inStockBikes.length} Bikes in Stock
           </div>
         </div>
 
-        {/* Total Sales Revenue (শো-রুম থেকে বিক্রি) */}
+        {/* Total Sales Revenue */}
         <div 
           onClick={() => onNavigate('sell')}
           className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 p-4 rounded-xl cursor-pointer transition-colors shadow"
         >
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Total Sales (বাইক বিক্রি)</span>
+            <span>Total Sales</span>
             <TrendingUp className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-2xl font-bold font-mono text-emerald-400 mt-2">
+          <div className="text-xl sm:text-2xl font-bold font-mono text-emerald-400 mt-2">
             {formatBDT(totalSalesRevenue)}
           </div>
-          <div className="text-xs text-slate-400 mt-1">
-            বিক্রি হয়েছে: <span className="font-mono text-emerald-400 font-semibold">{sales.length} টি বাইক</span>
+          <div className="text-xs text-emerald-400 font-medium mt-1 font-mono">
+            {sales.length} Bikes Sold
           </div>
         </div>
 
@@ -340,31 +311,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           className="bg-slate-900 border border-slate-800 hover:border-cyan-500/40 p-4 rounded-xl cursor-pointer transition-colors shadow"
         >
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Net Profit (নিট লাভ)</span>
+            <span>Net Profit</span>
             <DollarSign className="w-4 h-4 text-cyan-400" />
           </div>
-          <div className="text-2xl font-bold font-mono text-cyan-300 mt-2">
+          <div className="text-xl sm:text-2xl font-bold font-mono text-cyan-300 mt-2">
             +{formatBDT(totalRealizedProfit)}
           </div>
-          <div className="text-xs text-slate-400 mt-1">
-            গড় লাভ: <span className="font-mono text-cyan-400 font-semibold">+{formatBDT(avgProfitPerBike)} / বাইক</span>
+          <div className="text-xs text-cyan-400 font-medium mt-1 font-mono">
+            Avg: +{formatBDT(avgProfitPerBike)} / bike
           </div>
         </div>
 
-        {/* Total Purchases Cost (শো-রুমের জন্য কেনা) */}
+        {/* Total Purchases Cost */}
         <div 
           onClick={() => onNavigate('purchase')}
           className="bg-slate-900 border border-slate-800 hover:border-blue-500/40 p-4 rounded-xl cursor-pointer transition-colors shadow"
         >
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Total Purchases (বাইক কেনা)</span>
+            <span>Total Purchases</span>
             <ArrowDownLeft className="w-4 h-4 text-blue-400" />
           </div>
-          <div className="text-2xl font-bold font-mono text-slate-300 mt-2">
+          <div className="text-xl sm:text-2xl font-bold font-mono text-slate-300 mt-2">
             {formatBDT(totalPurchasesCost)}
           </div>
-          <div className="text-xs text-slate-400 mt-1">
-            শো-রুমের জন্য কেনা: <span className="font-mono text-blue-400 font-semibold">{purchases.length} টি বাইক</span>
+          <div className="text-xs text-blue-400 font-medium mt-1 font-mono">
+            {purchases.length} Bikes Purchased
           </div>
         </div>
       </div>
@@ -379,11 +350,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold text-white font-display">
-                Month-Wise Analytics (মাসভিত্তিক চার্ট)
+                Monthly Performance
               </h3>
-              <p className="text-[11px] text-slate-400">
-                X-Y অক্ষের লম্বা বার চার্ট এবং বৃত্তাকার পাই চার্ট
-              </p>
             </div>
           </div>
 
@@ -398,7 +366,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Both (দুটোই)</span>
+              <span>Both</span>
             </button>
             <button
               onClick={() => setChartViewMode('bar')}
@@ -409,7 +377,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>X-Y Bar (লম্বা চার্ট)</span>
+              <span>Bar</span>
             </button>
             <button
               onClick={() => setChartViewMode('pie')}
@@ -420,17 +388,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               }`}
             >
               <PieIcon className="w-3.5 h-3.5" />
-              <span>Pie Chart (পাই চার্ট)</span>
+              <span>Pie</span>
             </button>
           </div>
         </div>
 
         {/* Dynamic Month Highlight Header Banner */}
         {activeMonthData && (
-          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-cyan-500/40 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-slate-900 border border-cyan-500/30 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 font-mono font-bold text-sm">
-                <Calendar className="w-5 h-5 text-cyan-400" />
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 font-mono font-bold text-sm border border-cyan-500/20">
+                <Calendar className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -443,29 +411,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] text-slate-400">
-                  {hoveredMonthKey ? 'Hovered Month Details' : 'Selected Month Details (ক্লিক করে মাস পরিবর্তন করুন)'}
-                </span>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 sm:gap-4 text-xs font-mono">
               <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
-                <span className="text-[10px] text-slate-500 block">SALES (শো-রুম থেকে বিক্রি)</span>
+                <span className="text-[10px] text-slate-400 block font-sans">SALES</span>
                 <span className="text-emerald-400 font-bold text-sm sm:text-base">
                   {formatBDT(activeMonthData.salesAmount)}
                 </span>
-                <span className="text-[10px] text-slate-400 block">{activeMonthData.bikesSold} টি বাইক বিক্রি</span>
+                <span className="text-[10px] text-slate-500 block">{activeMonthData.bikesSold} Sold</span>
               </div>
               <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
-                <span className="text-[10px] text-slate-500 block">PURCHASE (শো-রুমের জন্য কেনা)</span>
+                <span className="text-[10px] text-slate-400 block font-sans">PURCHASE</span>
                 <span className="text-blue-400 font-bold text-sm sm:text-base">
                   {formatBDT(activeMonthData.purchasesAmount)}
                 </span>
-                <span className="text-[10px] text-slate-400 block">{activeMonthData.bikesPurchased} টি বাইক ক্রয়</span>
+                <span className="text-[10px] text-slate-500 block">{activeMonthData.bikesPurchased} Purchased</span>
               </div>
               <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
-                <span className="text-[10px] text-slate-500 block">NET PROFIT (নিট লাভ)</span>
+                <span className="text-[10px] text-slate-400 block font-sans">NET PROFIT</span>
                 <span className="text-cyan-300 font-bold text-sm sm:text-base">
                   +{formatBDT(activeMonthData.profit)}
                 </span>
@@ -479,7 +444,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className={`grid gap-5 ${
           chartViewMode === 'both' ? 'grid-cols-1 lg:grid-cols-12' : 'grid-cols-1'
         }`}>
-          {/* 1. X-Y AXIS VERTICAL BAR CHART (লম্বা চার্ট) */}
+          {/* 1. X-Y AXIS VERTICAL BAR CHART */}
           {(chartViewMode === 'both' || chartViewMode === 'bar') && (
             <div className={`bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 ${
               chartViewMode === 'both' ? 'lg:col-span-7' : 'w-full'
@@ -488,19 +453,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-emerald-400" />
                   <h4 className="text-sm font-bold text-white font-display">
-                    X-Y Axis Bar Chart (লম্বা কলাম চার্ট)
+                    Sales & Purchases
                   </h4>
                 </div>
 
-                {/* Legend: Sales & Purchases Only */}
-                <div className="flex items-center gap-4 text-[11px] font-mono">
-                  <div className="flex items-center gap-1.5 text-slate-300" title="শো-রুম থেকে কাস্টমারের কাছে বাইক বিক্রি">
+                {/* Legend: Sales & Purchases */}
+                <div className="flex items-center gap-4 text-xs font-mono">
+                  <div className="flex items-center gap-1.5 text-slate-300">
                     <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block shadow-sm shadow-emerald-400/50" />
-                    <span className="font-semibold text-emerald-400">Sale (শো-রুম থেকে বিক্রি)</span>
+                    <span className="font-semibold text-emerald-400">Sales</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-slate-300" title="শো-রুমের জন্য নতুন বাইক কেনা">
+                  <div className="flex items-center gap-1.5 text-slate-300">
                     <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block shadow-sm shadow-blue-500/50" />
-                    <span className="font-semibold text-blue-400">Purchase (শো-রুমের জন্য কেনা)</span>
+                    <span className="font-semibold text-blue-400">Purchases</span>
                   </div>
                 </div>
               </div>
@@ -540,7 +505,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       );
                     })}
 
-                    {/* Bars & X-Axis Month Columns (Sales & Purchases with amount on top) */}
+                    {/* Bars & X-Axis Month Columns */}
                     {monthlyStatsChronological.map((m, index) => {
                       const totalMonths = monthlyStatsChronological.length;
                       const colWidth = 490 / totalMonths;
@@ -636,27 +601,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           {/* Month Label on X-Axis */}
                           <text
                             x={barGroupCenterX}
-                            y="240"
+                            y="244"
                             textAnchor="middle"
-                            fontSize="10.5"
+                            fontSize="11"
                             fontWeight={isSelected ? '700' : '600'}
                             fill={isSelected ? '#38bdf8' : isHovered ? '#ffffff' : '#94a3b8'}
                             fontFamily="monospace"
                           >
                             {m.shortName}
-                          </text>
-
-                          {/* Units count under month name */}
-                          <text
-                            x={barGroupCenterX}
-                            y="254"
-                            textAnchor="middle"
-                            fontSize="8"
-                            fontWeight="500"
-                            fill="#64748b"
-                            fontFamily="monospace"
-                          >
-                            {m.bikesSold} বিক্রি · {m.bikesPurchased} কেনা
                           </text>
                         </g>
                       );
@@ -664,18 +616,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </svg>
                 </div>
               </div>
-
-              {/* Sub-label */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 border-t border-slate-800/80 pt-2 font-mono gap-1">
-                <span className="text-slate-400">
-                  <span className="text-emerald-400 font-bold">🟩 সবুজ বার</span> = শো-রুম থেকে বিক্রি | <span className="text-blue-400 font-bold">🟦 নীল বার</span> = শো-রুমের জন্য কেনা
-                </span>
-                <span>Y-অক্ষ: টাকার পরিমাণ (BDT)</span>
-              </div>
             </div>
           )}
 
-          {/* 2. PIE CHART / DONUT CHART (বৃত্তাকার পাই চার্ট) */}
+          {/* 2. PIE CHART / DONUT CHART */}
           {(chartViewMode === 'both' || chartViewMode === 'pie') && (
             <div className={`bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 ${
               chartViewMode === 'both' ? 'lg:col-span-5' : 'w-full'
@@ -684,7 +628,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="flex items-center gap-2">
                   <PieIcon className="w-4 h-4 text-cyan-400" />
                   <h4 className="text-sm font-bold text-white font-display">
-                    Pie Chart (পাই চার্ট বণ্টন)
+                    Distribution
                   </h4>
                 </div>
 
@@ -730,7 +674,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   className="w-56 h-56 select-none overflow-visible"
                 >
                   <g>
-                    {pieSlices.map((slice, idx) => {
+                    {pieSlices.map((slice) => {
                       const isHovered = hoveredMonthKey === slice.month.key;
                       const isSelected = selectedMonthKey === slice.month.key;
                       return (
@@ -811,29 +755,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Month Selector Pills at bottom for quick toggle */}
-        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2 text-slate-400">
-            <Calendar className="w-4 h-4 text-cyan-400" />
-            <span className="font-medium">ফিল্টার বা বিস্তারিত দেখতে মাস নির্বাচন করুন:</span>
-          </div>
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {monthlyStatsChronological.map((m) => (
-              <button
-                key={m.key}
-                onClick={() => setSelectedMonthKey(m.key)}
-                className={`px-3 py-1.5 rounded-xl font-mono text-xs font-semibold transition-all border ${
-                  selectedMonthKey === m.key
-                    ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md shadow-cyan-500/20'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
-                }`}
-              >
-                {m.name}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,8 @@
 {
-  "name": "MotoPrime Recondition Bike Showroom",
-  "description": "Premium certified pre-owned and recondition motorcycle showroom. Verified multi-point inspection, EMI financing, instant valuation, and bike comparison.",
+  "name": "Ma Motors Motorcycle Showroom",
+  "description": "Ma Motors - Quality Pre-Owned & Reconditioned Motorcycle Showroom. Real-time stock inventory, purchases, sales, certified bike inspection, and customer inquiries.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
