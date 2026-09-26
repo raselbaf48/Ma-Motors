@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Bike } from '../../types/bike';
-import { Camera } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface BikeVisualProps {
   bike: Bike;
@@ -9,24 +9,70 @@ interface BikeVisualProps {
   showDetails?: boolean;
   activeImageIndex?: number;
   customImageUrl?: string;
+  onSlideChange?: (index: number) => void;
+  autoPlay?: boolean;
+  slideOnHoverOnly?: boolean;
 }
 
 const PRESET_BIKE_PHOTOS: Record<string, string> = {
-  'yamaha-r15-1': 'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1000&q=80',
-  'yamaha-r15-2': 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=1000&q=80',
-  'yamaha-r15-3': 'https://images.unsplash.com/photo-1558980664-769d59546b3d?auto=format&fit=crop&w=1000&q=80',
-  'yamaha-r15-4': 'https://images.unsplash.com/photo-1571658734974-6563604f3db6?auto=format&fit=crop&w=1000&q=80',
-  'honda-cbr-1': 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=1000&q=80',
-  'honda-cbr-2': 'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1000&q=80',
-  're-classic-1': 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=1000&q=80',
-  're-classic-2': 'https://images.unsplash.com/photo-1558981408-db0ecd8a1ee4?auto=format&fit=crop&w=1000&q=80',
-  'suzuki-gixxer-1': 'https://images.unsplash.com/photo-1558980664-769d59546b3d?auto=format&fit=crop&w=1000&q=80',
-  'pulsar-ns-1': 'https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&w=1000&q=80',
-  'ktm-rc-1': 'https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&w=1000&q=80',
-  'tvs-apache-1': 'https://images.unsplash.com/photo-1547549082-6bc09f2049ae?auto=format&fit=crop&w=1000&q=80',
-  'ninja-125-1': 'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1000&q=80',
-  'mt15-1': 'https://images.unsplash.com/photo-1571658734974-6563604f3db6?auto=format&fit=crop&w=1000&q=80',
-  'fzs-1': 'https://images.unsplash.com/photo-1558980664-769d59546b3d?auto=format&fit=crop&w=1000&q=80'
+  // Yamaha
+  'yamaha-r15-1': '/bikes/yamaha-r15-v4.jpg',
+  'yamaha-r15-2': '/bikes/yamaha-r15-v3.jpg',
+  'yamaha-r15-3': '/bikes/yamaha-r15-v4.jpg',
+  'yamaha-r15-4': '/bikes/yamaha-r15-v3.jpg',
+  'yamaha-mt-1': '/bikes/yamaha-mt15.jpg',
+  'yamaha-mt-2': '/bikes/yamaha-fzs.jpg',
+  'yamaha-mt-3': '/bikes/yamaha-mt15.jpg',
+  'mt15-1': '/bikes/yamaha-mt15.jpg',
+  'fzs-1': '/bikes/yamaha-fzs.jpg',
+
+  // Honda
+  'honda-cbr-1': '/bikes/honda-cbr.jpg',
+  'honda-cbr-2': '/bikes/honda-cbr150r.jpg',
+  'honda-cbr-3': '/bikes/honda-cbr.jpg',
+  'honda-cbr-4': '/bikes/honda-cbr150r.jpg',
+  'honda-hornet-1': '/bikes/honda-cbr150r.jpg',
+  'honda-hornet-2': '/bikes/honda-cbr.jpg',
+
+  // Royal Enfield
+  'enfield-classic-1': '/bikes/royal-enfield-classic.jpg',
+  'enfield-classic-2': '/bikes/royal-enfield-bullet.jpg',
+  'enfield-classic-3': '/bikes/royal-enfield-classic.jpg',
+  'enfield-classic-4': '/bikes/royal-enfield-bullet.jpg',
+  're-classic-1': '/bikes/royal-enfield-classic.jpg',
+  're-classic-2': '/bikes/royal-enfield-bullet.jpg',
+  'enfield-hunter-1': '/bikes/royal-enfield-classic.jpg',
+  'enfield-hunter-2': '/bikes/royal-enfield-bullet.jpg',
+
+  // Suzuki
+  'suzuki-gixxer-1': '/bikes/suzuki-gixxer-sf.jpg',
+  'suzuki-gixxer-2': '/bikes/suzuki-gixxer.jpg',
+  'suzuki-gixxer-3': '/bikes/suzuki-gixxer-155.jpg',
+
+  // Bajaj
+  'pulsar-ns-1': '/bikes/bajaj-pulsar-ns.jpg',
+  'bajaj-ns200-1': '/bikes/bajaj-pulsar-ns.jpg',
+  'bajaj-ns200-2': '/bikes/bajaj-pulsar-150.jpg',
+  'bajaj-ns200-3': '/bikes/bajaj-pulsar-ns.jpg',
+  'bajaj-dominar-1': '/bikes/bajaj-pulsar-ns.jpg',
+  'bajaj-dominar-2': '/bikes/bajaj-pulsar-150.jpg',
+
+  // KTM
+  'ktm-rc-1': '/bikes/ktm-rc.jpg',
+  'ktm-duke-1': '/bikes/ktm-duke.jpg',
+  'ktm-duke-2': '/bikes/ktm-rc.jpg',
+  'ktm-duke-3': '/bikes/ktm-duke.jpg',
+
+  // TVS
+  'tvs-apache-1': '/bikes/tvs-apache-4v.png',
+  'tvs-apache-2': '/bikes/tvs-apache-2v.jpg',
+  'tvs-apache-3': '/bikes/tvs-apache-rr.jpg',
+
+  // Kawasaki
+  'ninja-125-1': '/bikes/kawasaki-ninja.png',
+  'kawasaki-ninja-1': '/bikes/kawasaki-ninja.png',
+  'kawasaki-ninja-2': '/bikes/kawasaki-ninja.png',
+  'kawasaki-ninja-3': '/bikes/kawasaki-ninja.png'
 };
 
 export const BikeVisual: React.FC<BikeVisualProps> = ({
@@ -34,7 +80,10 @@ export const BikeVisual: React.FC<BikeVisualProps> = ({
   className = '',
   aspect = '4/3',
   activeImageIndex = 0,
-  customImageUrl
+  customImageUrl,
+  onSlideChange,
+  autoPlay = true,
+  slideOnHoverOnly = true
 }) => {
   const [imageError, setImageError] = useState(false);
 
@@ -55,41 +104,110 @@ export const BikeVisual: React.FC<BikeVisualProps> = ({
     accent: '#f97316'
   };
 
-  const isCruiser = bike.category === 'Cruiser';
-  const isSport = bike.category === 'Sport';
+  // Collect all valid pictures for this bike (User uploaded photos or mapped presets)
+  const rawList = useMemo(() => {
+    if (customImageUrl && customImageUrl.trim()) return [customImageUrl.trim()];
+    if (bike.images && Array.isArray(bike.images) && bike.images.length > 0) {
+      const mapped = bike.images
+        .map((img) => PRESET_BIKE_PHOTOS[img] || img)
+        .filter((img) => Boolean(img && img.trim()));
+      if (mapped.length > 0) return mapped;
+    }
+    return [];
+  }, [bike.images, customImageUrl]);
 
-  // Check for image URL (resolve customImageUrl, direct URL, or preset photo)
-  const rawImage = customImageUrl || (bike.images && bike.images[activeImageIndex]) || (bike.images && bike.images[0]);
-  const resolvedImage = rawImage ? (PRESET_BIKE_PHOTOS[rawImage] || rawImage) : '';
-  const isHttpUrl = Boolean(resolvedImage && (
-    resolvedImage.startsWith('http://') || 
-    resolvedImage.startsWith('https://') || 
-    resolvedImage.startsWith('data:') || 
-    resolvedImage.startsWith('blob:') ||
-    resolvedImage.startsWith('/')
-  ));
+  const [slideIndex, setSlideIndex] = useState(activeImageIndex || 0);
+  const [isHovered, setIsHovered] = useState(false);
 
-  const validImagesCount = (bike.images || []).filter(img => 
-    img && (PRESET_BIKE_PHOTOS[img] || img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/') || img.startsWith('data:'))
-  ).length;
+  // Sync if parent passes explicit activeImageIndex
+  useEffect(() => {
+    if (typeof activeImageIndex === 'number' && activeImageIndex >= 0 && activeImageIndex < rawList.length) {
+      setSlideIndex(activeImageIndex);
+    }
+  }, [activeImageIndex, rawList.length]);
+
+  // Slideshow auto-advance:
+  // If slideOnHoverOnly is true (default for cards): ONLY advances when cursor hovers on this bike box (isHovered === true)!
+  // All other bikes stay fixed on their picture!
+  useEffect(() => {
+    if (rawList.length <= 1) return;
+
+    if (slideOnHoverOnly) {
+      if (!isHovered) return;
+      const interval = setInterval(() => {
+        setSlideIndex((prev) => {
+          const next = (prev + 1) % rawList.length;
+          if (onSlideChange) onSlideChange(next);
+          return next;
+        });
+      }, 1600); // Smooth 1.6s slide when cursor is placed on this bike
+      return () => clearInterval(interval);
+    } else {
+      if (!autoPlay || isHovered) return;
+      const interval = setInterval(() => {
+        setSlideIndex((prev) => {
+          const next = (prev + 1) % rawList.length;
+          if (onSlideChange) onSlideChange(next);
+          return next;
+        });
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [rawList.length, isHovered, autoPlay, slideOnHoverOnly, onSlideChange]);
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = (slideIndex + 1) % rawList.length;
+    setSlideIndex(next);
+    if (onSlideChange) onSlideChange(next);
+  };
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const prev = (slideIndex - 1 + rawList.length) % rawList.length;
+    setSlideIndex(prev);
+    if (onSlideChange) onSlideChange(prev);
+  };
+
+  const handleSelectDot = (e: React.MouseEvent, idx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSlideIndex(idx);
+    if (onSlideChange) onSlideChange(idx);
+  };
 
   const aspectClass = aspect === '4/3' ? 'aspect-[4/3]' : aspect === '16/9' ? 'aspect-[16/9]' : 'h-full min-h-[220px]';
 
   // If real image URL exists and hasn't failed loading
-  if (isHttpUrl && !imageError) {
+  if (rawList.length > 0 && !imageError) {
     return (
-      <div className={`relative w-full overflow-hidden bg-slate-950 flex items-center justify-center select-none group ${aspectClass} ${className}`}>
-        <img
-          src={resolvedImage}
-          alt={bike.name}
-          onError={() => setImageError(true)}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="lazy"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20 pointer-events-none" />
+      <div 
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`relative w-full overflow-hidden bg-slate-950 flex items-center justify-center select-none group ${aspectClass} ${className}`}
+      >
+        {/* Slideshow Image Stack (Zero-Flicker Cross-Fade) */}
+        {rawList.map((imgUrl, idx) => (
+          <img
+            key={idx}
+            src={imgUrl}
+            alt={`${bike.name} - Photo ${idx + 1}`}
+            onError={() => setImageError(true)}
+            className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-in-out group-hover:scale-105 ${
+              slideIndex === idx 
+                ? 'opacity-100 z-10 scale-100' 
+                : 'opacity-0 z-0 scale-95 pointer-events-none'
+            }`}
+            loading={idx === 0 ? 'eager' : 'lazy'}
+          />
+        ))}
 
-        {/* Subtle Brand & CC Watermark */}
-        <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none z-10">
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20 pointer-events-none z-10" />
+
+        {/* Brand & CC Watermark */}
+        <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none z-20">
           <span className="text-[11px] font-bold tracking-wider uppercase text-slate-200 bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800 backdrop-blur-md shadow">
             {bike.brand}
           </span>
@@ -98,18 +216,67 @@ export const BikeVisual: React.FC<BikeVisualProps> = ({
           </span>
         </div>
 
-        {/* Multiple photos indicator if > 1 */}
-        {validImagesCount > 1 && (
-          <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-[11px] font-mono text-slate-300 bg-slate-950/85 px-2.5 py-1 rounded-lg border border-slate-800/90 backdrop-blur-md z-10 shadow">
-            <Camera className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{validImagesCount} Photos</span>
-          </div>
+        {/* Slideshow Next & Previous Arrow Controls (Only when > 1 image) */}
+        {rawList.length > 1 && (
+          <>
+            <button
+              type="button"
+              aria-label="Previous photo"
+              onClick={handlePrev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-30 p-1.5 rounded-full bg-slate-950/80 hover:bg-slate-900 text-slate-300 hover:text-white border border-slate-800/80 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 shadow-md cursor-pointer hover:scale-110 active:scale-95"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              aria-label="Next photo"
+              onClick={handleNext}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-30 p-1.5 rounded-full bg-slate-950/80 hover:bg-slate-900 text-slate-300 hover:text-white border border-slate-800/80 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 shadow-md cursor-pointer hover:scale-110 active:scale-95"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            {/* Pagination Dots at Bottom Center */}
+            <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center gap-1.5 z-30 pointer-events-auto">
+              {rawList.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  aria-label={`Slide ${idx + 1}`}
+                  onClick={(e) => handleSelectDot(e, idx)}
+                  className={`transition-all rounded-full cursor-pointer ${
+                    slideIndex === idx
+                      ? 'w-5 h-1.5 bg-cyan-400 shadow-md shadow-cyan-400/50'
+                      : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/80'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Slideshow Photo Counter in Corner */}
+            <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 text-[10px] font-mono text-slate-300 bg-slate-950/85 px-2 py-0.5 rounded-md border border-slate-800/90 backdrop-blur-md z-20 shadow">
+              <Camera className="w-3 h-3 text-cyan-400" />
+              <span>{slideIndex + 1}/{rawList.length}</span>
+            </div>
+
+            {/* Subtle Slideshow Progress Line at Bottom */}
+            <div className="absolute bottom-0 inset-x-0 h-0.5 bg-slate-900/60 z-20">
+              <div 
+                className="h-full bg-cyan-400 transition-all duration-300"
+                style={{ width: `${((slideIndex + 1) / rawList.length) * 100}%` }}
+              />
+            </div>
+          </>
         )}
       </div>
     );
   }
 
   // Fallback: Precision Engineered Motorcycle Vector Silhouette (No Grade, No Inspection score)
+  const isSport = bike.category === 'Sport';
+  const isCruiser = bike.category === 'Cruiser' || bike.brand === 'Royal Enfield';
+
   return (
     <div
       className={`relative w-full overflow-hidden bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 flex items-center justify-center select-none group ${aspectClass} ${className}`}

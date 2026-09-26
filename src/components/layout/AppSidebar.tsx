@@ -9,8 +9,7 @@ import {
   Settings, 
   X, 
   Phone,
-  MapPin,
-  ChevronLeft
+  MapPin
 } from 'lucide-react';
 
 interface AppSidebarProps {
@@ -19,12 +18,16 @@ interface AppSidebarProps {
   bikesCount: number;
   inStockCount: number;
   inquiriesCount: number;
-  mobileOpen: boolean;
-  onCloseMobile: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
   desktopOpen?: boolean;
   onToggleDesktop?: () => void;
   showroomName?: string;
   logoUrl?: string;
+  hotline?: string;
+  address?: string;
 }
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
@@ -33,14 +36,29 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   bikesCount,
   inStockCount,
   inquiriesCount,
-  mobileOpen,
+  isOpen,
+  onClose,
+  mobileOpen = false,
   onCloseMobile,
-  desktopOpen = true,
+  desktopOpen = false,
   onToggleDesktop,
   showroomName = 'Ma Motors',
-  logoUrl
+  logoUrl,
+  hotline = '+880 1739-840603',
+  address = '14 No Ghat, South Potenga, Potenga, Chittagong'
 }) => {
   const [logoError, setLogoError] = useState(false);
+
+  // Active open state (hidden by default on all screens)
+  const isDrawerOpen = typeof isOpen === 'boolean' 
+    ? isOpen 
+    : Boolean(mobileOpen || desktopOpen);
+
+  const handleClose = () => {
+    if (onClose) onClose();
+    if (onCloseMobile) onCloseMobile();
+    if (onToggleDesktop) onToggleDesktop();
+  };
 
   const navItems = [
     {
@@ -78,101 +96,78 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   ];
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-slate-950 text-slate-200 border-r border-slate-800/80 select-none">
+    <div className="flex flex-col h-full bg-slate-950">
       {/* Brand Header */}
-      <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
+      <div className="p-3 border-b border-slate-800/80 flex items-center justify-between shrink-0">
         <button 
+          type="button"
           onClick={() => {
             onNavigate('dashboard');
-            onCloseMobile();
+            handleClose();
           }}
-          className="flex items-center gap-3 text-left group overflow-hidden"
+          className="flex items-center gap-2 text-left group overflow-hidden cursor-pointer min-w-0"
         >
-          {logoUrl && !logoError ? (
+          {Boolean(logoUrl && logoUrl.trim()) && !logoError ? (
             <img 
-              src={logoUrl} 
+              src={logoUrl!} 
               alt={showroomName} 
-              onError={() => setLogoError(true)}
-              className="w-10 h-10 rounded-xl object-cover border border-cyan-500/40 shadow-md group-hover:scale-105 transition-transform shrink-0" 
+              onError={() => setLogoError(true)} 
+              className="w-7 h-7 rounded-lg object-cover border border-cyan-500/40 shadow-sm group-hover:scale-105 transition-transform shrink-0" 
             />
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-xs shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform shrink-0">
               M
             </div>
           )}
           <div className="truncate">
-            <div className="font-extrabold text-white text-base tracking-tight font-display truncate group-hover:text-cyan-300 transition-colors">
+            <div className="font-bold text-white text-xs tracking-tight font-display truncate group-hover:text-cyan-300 transition-colors">
               {showroomName}
             </div>
-            <div className="text-[11px] text-slate-400 font-medium">
-              Motorcycle Showroom
+            <div className="text-[9px] text-cyan-400 font-medium truncate">
+              Showroom Portal
             </div>
           </div>
         </button>
 
-        {/* Mobile close button with smooth animation */}
-        <button
-          onClick={onCloseMobile}
-          className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all active:scale-95"
+        <button 
+          onClick={handleClose}
+          type="button"
+          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-colors cursor-pointer shrink-0"
+          title="Close Sidebar"
           aria-label="Close sidebar"
-          title="Close menu"
         >
-          <X className="w-5 h-5 transition-transform duration-200 hover:rotate-90" />
+          <X className="w-4 h-4" />
         </button>
-
-        {/* Desktop collapse button */}
-        {onToggleDesktop && (
-          <button
-            onClick={onToggleDesktop}
-            className="hidden md:flex p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-900 transition-colors"
-            title="Collapse sidebar"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        )}
       </div>
 
-      {/* Main Navigation Items (Without numbers, with staggered entry animation) */}
-      <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
-        {navItems.map((item, index) => {
+      {/* Navigation List */}
+      <nav className="p-2 space-y-1 flex-1 overflow-y-auto">
+        {navItems.map((item) => {
+          const isActive = currentPage === item.id;
           const Icon = item.icon;
-          const isActive = currentPage === item.id || 
-            (item.id === 'stock' && currentPage === 'details') ||
-            (item.id === 'dashboard' && currentPage === 'home') ||
-            (item.id === 'stock' && currentPage === 'inventory');
-
           return (
             <button
               key={item.id}
+              type="button"
               onClick={() => {
                 onNavigate(item.id);
-                onCloseMobile();
+                handleClose();
               }}
-              style={{
-                transitionDelay: mobileOpen ? `${index * 40 + 60}ms` : '0ms'
-              }}
-              className={`w-full text-left rounded-xl px-3.5 py-3 transition-all duration-300 flex items-center justify-between border transform active:scale-[0.98] ${
-                mobileOpen 
-                  ? 'translate-x-0 opacity-100' 
-                  : '-translate-x-4 opacity-0 md:translate-x-0 md:opacity-100'
-              } ${
+              className={`w-full text-left rounded-lg px-2.5 py-2 transition-all duration-150 flex items-center justify-between border cursor-pointer group ${
                 isActive
-                  ? 'bg-gradient-to-r from-cyan-500/20 via-cyan-500/10 to-transparent text-white border-cyan-500/40 font-semibold shadow-md shadow-cyan-500/15'
-                  : 'text-slate-400 border-transparent hover:bg-slate-900/90 hover:text-white hover:translate-x-1'
+                  ? 'bg-gradient-to-r from-cyan-500/20 via-cyan-500/10 to-transparent text-white border-cyan-500/40 font-semibold shadow-sm'
+                  : 'text-slate-400 border-transparent hover:bg-slate-900 hover:text-white'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                {isActive && (
-                  <div className="w-1.5 h-4 bg-gradient-to-b from-cyan-400 to-emerald-400 rounded-full shadow-sm shadow-cyan-400/50 shrink-0" />
-                )}
-                <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-300'}`} />
-                <span className="text-sm font-medium">{item.label}</span>
+              <div className="flex items-center gap-2 truncate">
+                <Icon className={`w-3.5 h-3.5 shrink-0 transition-colors ${isActive ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-300'}`} />
+                <span className="text-xs font-medium truncate">{item.label}</span>
               </div>
 
               {item.badge && (
-                <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full font-bold transition-all ${
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
                   isActive
-                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/30'
                     : 'bg-slate-900 text-slate-400'
                 }`}>
                   {item.badge}
@@ -184,15 +179,17 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       </nav>
 
       {/* Footer Info */}
-      <div className="p-3 m-3 bg-slate-900/60 rounded-xl border border-slate-800/80 space-y-1.5 text-xs text-slate-400">
-        <div className="flex items-center gap-1.5 text-slate-300">
-          <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-          <span>Tejgaon, Dhaka</span>
+      <div className="p-2.5 m-2 bg-slate-900/60 rounded-xl border border-slate-800/80 space-y-1.5 text-xs text-slate-400 shrink-0">
+        <div className="flex items-start gap-1.5 text-slate-300 leading-tight">
+          <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
+          <span className="text-[10px] font-medium leading-snug break-words">
+            {address || '14 No Ghat, South Potenga, Potenga, Chittagong'}
+          </span>
         </div>
-        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+        <div className="flex items-center gap-1.5 font-mono text-[10px]">
           <Phone className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-          <a href="tel:+8801711890432" className="hover:text-cyan-400 transition-colors">
-            +880 1711-890432
+          <a href={`tel:${hotline.replace(/\s+/g, '')}`} className="hover:text-cyan-400 transition-colors truncate">
+            {hotline}
           </a>
         </div>
       </div>
@@ -201,42 +198,38 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
   return (
     <>
-      {/* Desktop Sidebar (Collapsible with smooth animation) */}
+      {/* Desktop: Inline Push Sidebar (Compact w-52, smoothly expands/collapses inline so right side is never obscured!) */}
       <aside 
-        className={`hidden md:block shrink-0 h-screen sticky top-0 z-30 transition-all duration-300 ease-in-out overflow-hidden ${
-          desktopOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 pointer-events-none'
+        className={`hidden md:flex flex-col h-full bg-slate-950 text-slate-200 shrink-0 z-30 transition-all duration-300 ease-in-out overflow-hidden select-none ${
+          isDrawerOpen 
+            ? 'w-52 opacity-100 border-r border-slate-800/80 shadow-xl' 
+            : 'w-0 opacity-0 pointer-events-none border-r-0'
         }`}
       >
-        <div className="w-64 h-full">
+        <div className="w-52 h-full flex flex-col">
           {sidebarContent}
         </div>
       </aside>
 
-      {/* Mobile Slide-over Drawer with Smooth Slide & Fade Animation */}
+      {/* Mobile: Compact Slide-Over Drawer with light backdrop */}
       <div 
         className={`fixed inset-0 z-50 md:hidden transition-all duration-300 ease-in-out ${
-          mobileOpen 
-            ? 'pointer-events-auto opacity-100 visible' 
-            : 'pointer-events-none opacity-0 invisible delay-250'
+          isDrawerOpen ? 'pointer-events-auto opacity-100 visible' : 'pointer-events-none opacity-0 invisible delay-150'
         }`}
-        aria-hidden={!mobileOpen}
       >
-        {/* Dark Frosted Backdrop with Smooth Fade */}
         <div 
-          className={`fixed inset-0 bg-slate-950/85 backdrop-blur-md transition-opacity duration-300 ease-out ${
-            mobileOpen ? 'opacity-100' : 'opacity-0'
+          className={`fixed inset-0 bg-black/40 transition-opacity duration-300 ${
+            isDrawerOpen ? 'opacity-100' : 'opacity-0'
           }`}
-          onClick={onCloseMobile}
+          onClick={handleClose}
         />
-
-        {/* Animated Sliding Drawer with Cubic-Bezier curve & subtle cyan edge shadow */}
-        <div 
-          className={`relative w-72 max-w-[85vw] h-full z-10 shadow-[0_0_50px_rgba(0,0,0,0.9),4px_0_25px_rgba(6,182,212,0.15)] transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1) transform ${
-            mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        <aside 
+          className={`fixed inset-y-0 left-0 w-52 max-w-[80vw] h-full z-10 bg-slate-950 text-slate-200 border-r border-slate-800 shadow-2xl transition-transform duration-300 transform flex flex-col select-none ${
+            isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
           {sidebarContent}
-        </div>
+        </aside>
       </div>
     </>
   );

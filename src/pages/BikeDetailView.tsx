@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Bike, SaleRecord, AdditionalCostCategory, AdditionalCostItem } from '../types/bike';
 import { formatBDT } from '../utils/formatters';
 import { BikeVisual } from '../components/common/BikeVisual';
@@ -22,7 +22,10 @@ import {
   ExternalLink,
   Wrench,
   Droplets,
-  Sparkles
+  Sparkles,
+  ShieldCheck,
+  Play,
+  Pause
 } from 'lucide-react';
 
 interface BikeDetailViewProps {
@@ -78,20 +81,81 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
   const [editCc, setEditCc] = useState(bike.cc);
   const [editMileage, setEditMileage] = useState(bike.mileageKm);
   const [editStatus, setEditStatus] = useState(bike.status || 'Available');
+  const [editFuelSupply, setEditFuelSupply] = useState<'FI' | 'Carburetor' | 'Electric'>(bike.fuelSupply || bike.specs?.fuelSupply || 'FI');
   
   // Multiple Photos state in Edit modal
   const [editImages, setEditImages] = useState<string[]>(bike.images || []);
   const [newImageUrl, setNewImageUrl] = useState('');
+
+  const [editBrakingSystem, setEditBrakingSystem] = useState<string>(
+    bike.brakingSystem || bike.specs?.brakingSystem || 'Single Channel ABS'
+  );
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
   const totalPrepCost = bike.additionalCosts?.reduce((sum, c) => sum + c.amount, 0) || bike.totalAdditionalCost || 0;
   const totalShowroomInvestment = effectiveBuyingPrice + totalPrepCost;
   const calculatedProfit = salePrice - totalShowroomInvestment;
   const projectedMargin = effectiveAskingPrice - totalShowroomInvestment;
 
-  // Photo gallery helpers
-  const validImages = (bike.images || []).filter(img => 
-    img && (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/') || img.startsWith('data:'))
-  );
+  const effectiveBrakingSystem = bike.brakingSystem || bike.specs?.brakingSystem || (bike.specs?.absType?.includes('Dual') ? 'Dual Channel ABS' : 'Single Channel ABS');
+
+  // Photo lookup table matching all model assets
+  const PRESET_PHOTO_MAP: Record<string, string> = {
+    'yamaha-r15-1': '/bikes/yamaha-r15-v4.jpg',
+    'yamaha-r15-2': '/bikes/yamaha-r15-v3.jpg',
+    'yamaha-r15-3': '/bikes/yamaha-r15-v4.jpg',
+    'yamaha-r15-4': '/bikes/yamaha-r15-v3.jpg',
+    'yamaha-mt-1': '/bikes/yamaha-mt15.jpg',
+    'yamaha-mt-2': '/bikes/yamaha-fzs.jpg',
+    'yamaha-mt-3': '/bikes/yamaha-mt15.jpg',
+    'mt15-1': '/bikes/yamaha-mt15.jpg',
+    'fzs-1': '/bikes/yamaha-fzs.jpg',
+    'honda-cbr-1': '/bikes/honda-cbr.jpg',
+    'honda-cbr-2': '/bikes/honda-cbr150r.jpg',
+    'honda-cbr-3': '/bikes/honda-cbr.jpg',
+    'honda-cbr-4': '/bikes/honda-cbr150r.jpg',
+    'honda-hornet-1': '/bikes/honda-cbr150r.jpg',
+    'honda-hornet-2': '/bikes/honda-cbr.jpg',
+    'enfield-classic-1': '/bikes/royal-enfield-classic.jpg',
+    'enfield-classic-2': '/bikes/royal-enfield-bullet.jpg',
+    'enfield-classic-3': '/bikes/royal-enfield-classic.jpg',
+    'enfield-classic-4': '/bikes/royal-enfield-bullet.jpg',
+    're-classic-1': '/bikes/royal-enfield-classic.jpg',
+    're-classic-2': '/bikes/royal-enfield-bullet.jpg',
+    'enfield-hunter-1': '/bikes/royal-enfield-classic.jpg',
+    'enfield-hunter-2': '/bikes/royal-enfield-bullet.jpg',
+    'suzuki-gixxer-1': '/bikes/suzuki-gixxer-sf.jpg',
+    'suzuki-gixxer-2': '/bikes/suzuki-gixxer.jpg',
+    'suzuki-gixxer-3': '/bikes/suzuki-gixxer-155.jpg',
+    'pulsar-ns-1': '/bikes/bajaj-pulsar-ns.jpg',
+    'bajaj-ns200-1': '/bikes/bajaj-pulsar-ns.jpg',
+    'bajaj-ns200-2': '/bikes/bajaj-pulsar-150.jpg',
+    'bajaj-ns200-3': '/bikes/bajaj-pulsar-ns.jpg',
+    'bajaj-dominar-1': '/bikes/bajaj-pulsar-ns.jpg',
+    'bajaj-dominar-2': '/bikes/bajaj-pulsar-150.jpg',
+    'ktm-rc-1': '/bikes/ktm-rc.jpg',
+    'ktm-duke-1': '/bikes/ktm-duke.jpg',
+    'ktm-duke-2': '/bikes/ktm-rc.jpg',
+    'ktm-duke-3': '/bikes/ktm-duke.jpg',
+    'tvs-apache-1': '/bikes/tvs-apache-4v.png',
+    'tvs-apache-2': '/bikes/tvs-apache-2v.jpg',
+    'tvs-apache-3': '/bikes/tvs-apache-rr.jpg',
+    'ninja-125-1': '/bikes/kawasaki-ninja.png',
+    'kawasaki-ninja-1': '/bikes/kawasaki-ninja.png',
+    'kawasaki-ninja-2': '/bikes/kawasaki-ninja.png',
+    'kawasaki-ninja-3': '/bikes/kawasaki-ninja.png'
+  };
+
+  // Photo gallery helpers (Resolve mapped presets & user uploads)
+  const validImages = useMemo(() => {
+    if (bike.images && Array.isArray(bike.images) && bike.images.length > 0) {
+      return bike.images
+        .map((img) => PRESET_PHOTO_MAP[img] || img)
+        .filter((img) => Boolean(img && (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/') || img.startsWith('data:'))));
+    }
+    return [];
+  }, [bike.images]);
+
   const hasMultipleImages = validImages.length > 1;
 
   const handleNextImage = () => {
@@ -116,6 +180,8 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
     setEditCc(bike.cc);
     setEditMileage(bike.mileageKm);
     setEditStatus(bike.status || 'Available');
+    setEditFuelSupply(bike.fuelSupply || bike.specs?.fuelSupply || 'FI');
+    setEditBrakingSystem(bike.brakingSystem || bike.specs?.brakingSystem || 'Single Channel ABS');
     setEditImages([...(bike.images || [])]);
     setNewImageUrl('');
     setIsEditModalOpen(true);
@@ -150,7 +216,14 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
       cc: editCc,
       mileageKm: editMileage,
       status: editStatus as any,
-      inStock: editStatus !== 'Sold',
+      fuelSupply: editFuelSupply,
+      brakingSystem: editBrakingSystem,
+      specs: {
+        ...bike.specs,
+        fuelSupply: editFuelSupply,
+        brakingSystem: editBrakingSystem
+      },
+      inStock: editStatus === 'Available',
       images: editImages.length > 0 ? editImages : bike.images
     };
     onUpdateBike(updated);
@@ -222,9 +295,9 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
               onClick={onBack}
               title={`${showroomName} - Showroom Logo`}
             >
-              {logoUrl && !logoError ? (
+              {Boolean(logoUrl && logoUrl.trim()) && !logoError ? (
                 <img 
-                  src={logoUrl} 
+                  src={logoUrl!} 
                   alt={showroomName} 
                   onError={() => setLogoError(true)} 
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover border-2 border-cyan-500/50 shadow-md shadow-cyan-500/20 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 
@@ -278,12 +351,15 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
 
         {/* 3D Showcase Card & Photo Gallery */}
         <div className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-t border-l border-slate-700/60 border-r-2 border-b-4 border-slate-950 shadow-2xl">
-          {/* Photo Display Area */}
+          {/* Photo Display Area (Auto-Slideshow with Cross-Fade & Indicator Controls) */}
           <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-950">
             <BikeVisual 
               bike={bike} 
               aspect="16/9" 
               activeImageIndex={activeImageIndex} 
+              onSlideChange={(idx) => setActiveImageIndex(idx)}
+              autoPlay={isAutoPlaying}
+              slideOnHoverOnly={false}
             />
 
             {/* Sold Out Badge overlay */}
@@ -292,55 +368,47 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
                 Sold Out
               </div>
             )}
-
-            {/* Previous / Next Arrows for Multiple Photos */}
-            {hasMultipleImages && (
-              <div className="absolute inset-y-0 inset-x-2 flex items-center justify-between pointer-events-none z-20">
-                <button
-                  type="button"
-                  onClick={handlePrevImage}
-                  className="p-2 rounded-full bg-slate-950/80 hover:bg-slate-900 border border-slate-700/80 text-white pointer-events-auto backdrop-blur-md transition-all shadow-lg hover:scale-110"
-                  aria-label="Previous photo"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextImage}
-                  className="p-2 rounded-full bg-slate-950/80 hover:bg-slate-900 border border-slate-700/80 text-white pointer-events-auto backdrop-blur-md transition-all shadow-lg hover:scale-110"
-                  aria-label="Next photo"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-
-            {/* Photo Counter */}
-            {validImages.length > 0 && (
-              <div className="absolute bottom-3 right-3 z-20 bg-slate-950/85 px-2.5 py-1 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-300 backdrop-blur-md shadow flex items-center gap-1.5">
-                <Camera className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{activeImageIndex + 1} / {validImages.length}</span>
-              </div>
-            )}
           </div>
 
-          {/* Multiple Photos Thumbnail Strip */}
+          {/* Multiple Photos Thumbnail Strip & Slideshow Auto-Play Toggle */}
           {hasMultipleImages && (
-            <div className="p-3 bg-slate-950/90 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto">
-              <span className="text-[11px] text-slate-400 font-mono shrink-0 mr-1">Photos:</span>
-              {validImages.map((imgUrl, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveImageIndex(idx)}
-                  className={`relative w-16 h-12 rounded-lg overflow-hidden shrink-0 border-2 transition-all ${
-                    activeImageIndex === idx 
-                      ? 'border-cyan-400 scale-105 shadow-md shadow-cyan-500/20' 
-                      : 'border-slate-800 opacity-60 hover:opacity-100 hover:border-slate-600'
-                  }`}
-                >
-                  <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
+            <div className="p-3 bg-slate-950/90 border-t border-slate-800/80 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 overflow-x-auto py-0.5">
+                <span className="text-[11px] text-slate-400 font-mono shrink-0 mr-1">Photos ({validImages.length}):</span>
+                {validImages.map((imgUrl: string, idx: number) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`relative w-16 h-12 rounded-lg overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                      activeImageIndex === idx 
+                        ? 'border-cyan-400 scale-105 shadow-md shadow-cyan-500/20' 
+                        : 'border-slate-800 opacity-60 hover:opacity-100 hover:border-slate-600'
+                    }`}
+                  >
+                    <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+
+              {/* Slideshow Play / Pause Control */}
+              <button
+                type="button"
+                onClick={() => setIsAutoPlaying((prev) => !prev)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-cyan-300 hover:text-white hover:bg-slate-800 transition-colors shrink-0 cursor-pointer shadow-sm"
+              >
+                {isAutoPlaying ? (
+                  <>
+                    <Pause className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>স্লাইডশো পজ করুন</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>স্লাইডশো চালু করুন</span>
+                  </>
+                )}
+              </button>
             </div>
           )}
 
@@ -364,8 +432,8 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
               </div>
             </div>
 
-            {/* Key Specifications Grid - Minimal and Clean */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3">
+            {/* Key Specifications Grid - 6 Key Pillars */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3">
               <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80">
                 <div className="flex items-center gap-1.5 text-cyan-400 text-xs mb-1 font-mono">
                   <Zap className="w-3.5 h-3.5" />
@@ -373,6 +441,42 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
                 </div>
                 <div className="font-bold text-white text-base font-mono">{bike.cc} cc</div>
                 <div className="text-[11px] text-slate-400 font-mono">Displacement</div>
+              </div>
+
+              {/* Braking System Card */}
+              <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80">
+                <div className="flex items-center gap-1.5 text-indigo-400 text-xs mb-1 font-mono">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>BRAKING SYSTEM</span>
+                </div>
+                <div className="font-bold text-white text-sm font-mono truncate" title={effectiveBrakingSystem}>
+                  {effectiveBrakingSystem}
+                </div>
+                <div className="text-[11px] text-indigo-300 font-mono">
+                  {effectiveBrakingSystem.includes('Dual') ? 'Dual Wheel ABS' : effectiveBrakingSystem.includes('Single') ? 'Front Wheel ABS' : effectiveBrakingSystem.includes('CBS') ? 'Combi Braking' : 'Disc/Drum System'}
+                </div>
+              </div>
+
+              <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80">
+                <div className="flex items-center gap-1.5 text-cyan-400 text-xs mb-1 font-mono">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>FUEL SYSTEM</span>
+                </div>
+                <div className="font-bold text-white text-base font-mono flex items-center gap-1.5">
+                  <span>{bike.fuelSupply || bike.specs?.fuelSupply || (bike.fuelType === 'Electric' ? 'Electric' : 'FI')}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                    (bike.fuelSupply || bike.specs?.fuelSupply) === 'Carburetor' 
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
+                      : (bike.fuelSupply || bike.specs?.fuelSupply) === 'Electric'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                  }`}>
+                    {(bike.fuelSupply || bike.specs?.fuelSupply) === 'Carburetor' ? 'Carb' : (bike.fuelSupply || bike.specs?.fuelSupply) === 'Electric' ? 'EV' : 'Fi'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-mono">
+                  {(bike.fuelSupply || bike.specs?.fuelSupply) === 'Carburetor' ? 'Carburetor Engine' : (bike.fuelSupply || bike.specs?.fuelSupply) === 'Electric' ? 'Electric Motor' : 'Fuel Injected (FI)'}
+                </div>
               </div>
 
               <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80">
@@ -398,10 +502,14 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
                   <Tag className="w-3.5 h-3.5" />
                   <span>REGISTRATION NO</span>
                 </div>
-                <div className="font-bold text-cyan-300 text-xs sm:text-sm font-mono truncate">
-                  {bike.regNumber || bike.inspection?.registrationNumber || 'Dhaka Metro'}
+                <div className={`font-bold text-xs sm:text-sm font-mono truncate ${
+                  bike.regNumber === 'ON TEST' ? 'text-amber-300' : 'text-cyan-300'
+                }`}>
+                  {bike.regNumber || 'ON TEST'}
                 </div>
-                <div className="text-[11px] text-slate-400 font-mono">BRTA Registered</div>
+                <div className="text-[11px] text-slate-400 font-mono">
+                  {bike.regNumber === 'ON TEST' ? 'On Test (রেজিস্ট্রেশন ছাড়া)' : 'BRTA Registered'}
+                </div>
               </div>
             </div>
           </div>
@@ -915,8 +1023,8 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
                 </div>
               </div>
 
-              {/* CC, Mileage */}
-              <div className="grid grid-cols-2 gap-2.5">
+              {/* CC, Mileage & Fuel Supply */}
+              <div className="grid grid-cols-3 gap-2.5">
                 <div>
                   <label className="text-slate-400 block mb-1">Engine (cc)</label>
                   <input
@@ -936,6 +1044,36 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
                   />
                 </div>
+
+                <div>
+                  <label className="text-slate-400 block mb-1">Fuel Supply</label>
+                  <select
+                    value={editFuelSupply}
+                    onChange={(e) => setEditFuelSupply(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="FI">FI (Injected)</option>
+                    <option value="Carburetor">Carburetor</option>
+                    <option value="Electric">Electric</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Braking System in Edit Modal */}
+              <div>
+                <label className="text-slate-400 block mb-1">Braking System (ব্রেকিং সিস্টেম)</label>
+                <select
+                  value={editBrakingSystem}
+                  onChange={(e) => setEditBrakingSystem(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="Dual Channel ABS">Dual Channel ABS</option>
+                  <option value="Single Channel ABS">Single Channel ABS</option>
+                  <option value="CBS">CBS (Combi Brake System)</option>
+                  <option value="Dual Disc">Dual Disc</option>
+                  <option value="Front Disc / Rear Drum">Front Disc / Rear Drum</option>
+                  <option value="Drum Brakes">Drum Brakes</option>
+                </select>
               </div>
 
               {/* Status */}

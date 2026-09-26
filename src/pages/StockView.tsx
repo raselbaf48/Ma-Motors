@@ -11,7 +11,9 @@ import {
   Zap,
   Tag,
   Camera,
-  Trash2
+  Trash2,
+  UploadCloud,
+  ShieldCheck
 } from 'lucide-react';
 
 interface StockViewProps {
@@ -40,6 +42,7 @@ export const StockView: React.FC<StockViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Available' | 'Sold'>('ALL');
+  const [selectedBrakingSystem, setSelectedBrakingSystem] = useState<string>('ALL');
 
   // Modal state for Add Bike
   const [isModalOpen, setIsModalOpen] = useState(isAddModalOpen);
@@ -56,7 +59,8 @@ export const StockView: React.FC<StockViewProps> = ({
   const [formCc, setFormCc] = useState(150);
   const [formMileage, setFormMileage] = useState(5000);
   const [formCategory, setFormCategory] = useState<'Sport' | 'Cruiser' | 'Naked' | 'Commuter' | 'Tourer'>('Sport');
-  const [formImages, setFormImages] = useState<string[]>(['https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1000&q=80']);
+  const [formBrakingSystem, setFormBrakingSystem] = useState<string>('Single Channel ABS');
+  const [formImages, setFormImages] = useState<string[]>([]);
   const [formImageUrl, setFormImageUrl] = useState('');
 
   const filteredBikes = bikes.filter((bike) => {
@@ -70,7 +74,17 @@ export const StockView: React.FC<StockViewProps> = ({
     const matchesStatus = statusFilter === 'ALL' || 
       (statusFilter === 'Available' ? bike.status !== 'Sold' : bike.status === 'Sold');
 
-    return matchesSearch && matchesBrand && matchesStatus;
+    let matchesBrake = true;
+    if (selectedBrakingSystem !== 'ALL') {
+      const bikeBrake = (bike.brakingSystem || bike.specs?.brakingSystem || bike.specs?.absType || '').toLowerCase();
+      const target = selectedBrakingSystem.toLowerCase();
+      if (target.includes('dual') && !bikeBrake.includes('dual')) matchesBrake = false;
+      else if (target.includes('single') && !bikeBrake.includes('single')) matchesBrake = false;
+      else if (target.includes('cbs') && !bikeBrake.includes('cbs')) matchesBrake = false;
+      else if (target.includes('disc') && !bikeBrake.includes('disc')) matchesBrake = false;
+    }
+
+    return matchesSearch && matchesBrand && matchesStatus && matchesBrake;
   });
 
   const inStockList = bikes.filter((b) => b.status !== 'Sold');
@@ -95,7 +109,7 @@ export const StockView: React.FC<StockViewProps> = ({
     setFormCc(150);
     setFormMileage(6000);
     setFormCategory('Sport');
-    setFormImages(['https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1000&q=80']);
+    setFormImages([]);
     setFormImageUrl('');
     setIsModalOpen(true);
   };
@@ -132,6 +146,8 @@ export const StockView: React.FC<StockViewProps> = ({
       conditionGrade: 'A',
       conditionLabel: 'Good',
       fuelType: 'Petrol',
+      fuelSupply: 'FI',
+      brakingSystem: formBrakingSystem,
       transmission: 'Manual',
       color: 'Cyan / Black',
       colorHex: '#06b6d4',
@@ -143,7 +159,7 @@ export const StockView: React.FC<StockViewProps> = ({
       registrationCity: 'Dhaka',
       ownersCount: 1,
       warrantyMonths: 12,
-      images: formImages.length > 0 ? formImages : ['https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1000&q=80'],
+      images: formImages,
       documentPdfName: 'BRTA_Papers.pdf',
       specs: {
         engine: `${formCc}cc Single Cylinder`,
@@ -153,9 +169,10 @@ export const StockView: React.FC<StockViewProps> = ({
         topSpeed: '130 km/h',
         curbWeight: '140 kg',
         seatHeight: '800 mm',
-        frontBrake: 'Disc ABS',
-        rearBrake: 'Disc',
-        absType: 'Single Channel',
+        frontBrake: formBrakingSystem.includes('Drum') ? 'Drum' : 'Disc ABS',
+        rearBrake: formBrakingSystem.includes('Dual') ? 'Disc' : 'Drum',
+        absType: formBrakingSystem,
+        brakingSystem: formBrakingSystem,
         tyreConditionPct: 90,
         batteryHealthPct: 95
       },
@@ -183,7 +200,7 @@ export const StockView: React.FC<StockViewProps> = ({
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1800px] w-full mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -316,6 +333,33 @@ export const StockView: React.FC<StockViewProps> = ({
             </button>
           ))}
         </div>
+
+        {/* Braking System Filter */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs pt-2 border-t border-slate-800/60">
+          <span className="text-slate-400 text-[11px] mr-1 shrink-0 flex items-center gap-1 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+            <span>ব্রেকিং সিস্টেম:</span>
+          </span>
+          {[
+            { id: 'ALL', label: 'All Brakes' },
+            { id: 'Dual Channel ABS', label: 'Dual ABS' },
+            { id: 'Single Channel ABS', label: 'Single ABS' },
+            { id: 'CBS', label: 'CBS' },
+            { id: 'Dual Disc', label: 'Dual Disc' }
+          ].map((sys) => (
+            <button
+              key={sys.id}
+              onClick={() => setSelectedBrakingSystem(sys.id)}
+              className={`px-2.5 py-0.5 rounded-md text-[11px] shrink-0 transition-colors border ${
+                selectedBrakingSystem === sys.id
+                  ? 'bg-indigo-500/25 text-indigo-300 border-indigo-500/40 font-semibold'
+                  : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+              }`}
+            >
+              {sys.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 3D Box Shape Bike Grid */}
@@ -324,7 +368,7 @@ export const StockView: React.FC<StockViewProps> = ({
           <p className="text-sm">No bikes found in this collection.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-5 xl:gap-6">
           {filteredBikes.map((bike) => {
             const isSold = bike.status === 'Sold';
             const askingPrice = bike.askingPrice || bike.price || 0;
@@ -367,23 +411,46 @@ export const StockView: React.FC<StockViewProps> = ({
 
                 {/* Box Content - Only Key Points */}
                 <div className="p-4 space-y-3">
-                  {/* Brand & Bike Name */}
+                  {/* Brand & Bike Name & Badges */}
                   <div>
-                    <div className="text-[11px] font-mono font-bold text-cyan-400 uppercase tracking-wide">
-                      {bike.brand}
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] font-mono font-bold text-cyan-400 uppercase tracking-wide">
+                        {bike.brand} · {bike.category}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Braking System Badge */}
+                        {(bike.brakingSystem || bike.specs?.brakingSystem || bike.specs?.absType) && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                            {bike.brakingSystem || bike.specs?.brakingSystem || (bike.specs?.absType?.includes('Dual') ? 'Dual ABS' : 'Single ABS')}
+                          </span>
+                        )}
+                        {bike.fuelSupply && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                            bike.fuelSupply === 'Carburetor' 
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
+                              : bike.fuelSupply === 'Electric'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                          }`}>
+                            {bike.fuelSupply === 'Carburetor' ? 'Carb' : bike.fuelSupply}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <h3 className="font-bold text-white text-base font-display truncate group-hover:text-cyan-300 transition-colors">
+                    <h3 className="font-bold text-white text-base font-display truncate group-hover:text-cyan-300 transition-colors mt-0.5">
                       {bike.name}
                     </h3>
                   </div>
 
-                  {/* 4 Key Points Grid */}
+                  {/* 4 Key Points Grid with Braking System */}
                   <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                     <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800/80 flex items-center gap-2">
                       <Zap className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                       <div>
                         <div className="text-[9px] text-slate-500">ENGINE</div>
-                        <div className="font-semibold text-slate-200">{bike.cc} cc</div>
+                        <div className="font-semibold text-slate-200">
+                          {bike.cc} cc {bike.fuelSupply ? `· ${bike.fuelSupply === 'Carburetor' ? 'Carb' : bike.fuelSupply}` : ''}
+                        </div>
                       </div>
                     </div>
 
@@ -396,20 +463,20 @@ export const StockView: React.FC<StockViewProps> = ({
                     </div>
 
                     <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800/80 flex items-center gap-2">
-                      <Calendar className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                      <div>
-                        <div className="text-[9px] text-slate-500">REG YEAR</div>
-                        <div className="font-semibold text-slate-200">{bike.regYear || bike.year}</div>
+                      <ShieldCheck className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <div className="truncate">
+                        <div className="text-[9px] text-slate-500">BRAKES</div>
+                        <div className="font-semibold text-slate-200 truncate text-[11px]">
+                          {bike.brakingSystem || bike.specs?.brakingSystem || (bike.specs?.absType?.includes('Dual') ? 'Dual ABS' : 'Single ABS')}
+                        </div>
                       </div>
                     </div>
 
                     <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800/80 flex items-center gap-2">
-                      <Tag className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                      <div className="truncate">
-                        <div className="text-[9px] text-slate-500">REG NO</div>
-                        <div className="font-semibold text-cyan-300 truncate text-[11px]">
-                          {bike.regNumber || 'Dhaka Metro'}
-                        </div>
+                      <Calendar className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <div>
+                        <div className="text-[9px] text-slate-500">REG YEAR</div>
+                        <div className="font-semibold text-slate-200">{bike.regYear || bike.year}</div>
                       </div>
                     </div>
                   </div>
@@ -452,9 +519,9 @@ export const StockView: React.FC<StockViewProps> = ({
 
       {/* Add Bike Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-lg overflow-hidden shadow-2xl my-8">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+        <div className="fixed inset-0 z-50 bg-black/70 overflow-y-auto flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-lg shadow-2xl my-auto flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950 shrink-0">
               <h3 className="text-sm font-bold text-white">
                 Add Bike to Collection
               </h3>
@@ -469,7 +536,7 @@ export const StockView: React.FC<StockViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSubmitForm} className="p-4 sm:p-5 space-y-3.5 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSubmitForm} className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <label className="text-slate-400 block mb-1">Brand</label>
@@ -490,7 +557,44 @@ export const StockView: React.FC<StockViewProps> = ({
                     type="text"
                     required
                     value={formModel}
-                    onChange={(e) => setFormModel(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormModel(val);
+                      const lower = val.toLowerCase();
+                      if (
+                        lower.includes('dual abs') ||
+                        lower.includes('dual channel') ||
+                        lower.includes('r15') ||
+                        lower.includes('ns400') ||
+                        lower.includes('n250') ||
+                        lower.includes('f250') ||
+                        lower.includes('n160 dual') ||
+                        lower.includes('rr 310') ||
+                        lower.includes('cbr') ||
+                        lower.includes('duke') ||
+                        lower.includes('ninja') ||
+                        lower.includes('dominar') ||
+                        lower.includes('classic 350 dark')
+                      ) {
+                        setFormBrakingSystem('Dual Channel ABS');
+                      } else if (
+                        lower.includes('single abs') ||
+                        lower.includes('single channel') ||
+                        lower.includes('abs') ||
+                        lower.includes('fz-s') ||
+                        lower.includes('mt-15') ||
+                        lower.includes('gixxer') ||
+                        lower.includes('ns160')
+                      ) {
+                        setFormBrakingSystem('Single Channel ABS');
+                      } else if (lower.includes('dual disc') || lower.includes('twin disc')) {
+                        setFormBrakingSystem('Dual Disc');
+                      } else if (lower.includes('cbs') || lower.includes('combi')) {
+                        setFormBrakingSystem('CBS');
+                      } else if (lower.includes('drum')) {
+                        setFormBrakingSystem('Drum Brakes');
+                      }
+                    }}
                     placeholder="e.g. FZ-S V3"
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
                   />
@@ -581,6 +685,39 @@ export const StockView: React.FC<StockViewProps> = ({
                 </div>
               </div>
 
+              {/* Braking System and Category */}
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div>
+                  <label className="text-slate-400 block mb-1">Braking System (ব্রেকিং সিস্টেম)</label>
+                  <select
+                    value={formBrakingSystem}
+                    onChange={(e) => setFormBrakingSystem(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="Dual Channel ABS">Dual Channel ABS</option>
+                    <option value="Single Channel ABS">Single Channel ABS</option>
+                    <option value="CBS">CBS (Combi Brake)</option>
+                    <option value="Dual Disc">Dual Disc</option>
+                    <option value="Front Disc / Rear Drum">Front Disc / Rear Drum</option>
+                    <option value="Drum Brakes">Drum Brakes</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">Category</label>
+                  <select
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="Sport">Sport</option>
+                    <option value="Naked">Naked</option>
+                    <option value="Commuter">Commuter</option>
+                    <option value="Cruiser">Cruiser</option>
+                    <option value="Tourer">Tourer</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Photos Section */}
               <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2.5">
                 <div className="flex items-center justify-between">
@@ -593,28 +730,59 @@ export const StockView: React.FC<StockViewProps> = ({
                   </span>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
-                    type="url"
-                    value={formImageUrl}
-                    onChange={(e) => setFormImageUrl(e.target.value)}
-                    placeholder="Paste image link: https://..."
-                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:border-cyan-500"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddPhotoUrl();
-                      }
+                    type="file"
+                    id="stock-modal-file-upload"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (!files || files.length === 0) return;
+                      Array.from(files).forEach((file) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          if (ev.target?.result) {
+                            setFormImages((prev) => [...prev, ev.target!.result as string]);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                      e.target.value = '';
                     }}
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddPhotoUrl}
-                    className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-lg transition-colors flex items-center gap-1 shrink-0"
+                  <label
+                    htmlFor="stock-modal-file-upload"
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-slate-700 hover:border-cyan-500/40 rounded-lg text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5 shrink-0"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add</span>
-                  </button>
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>Upload Device Photos</span>
+                  </label>
+
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="url"
+                      value={formImageUrl}
+                      onChange={(e) => setFormImageUrl(e.target.value)}
+                      placeholder="Or paste image URL: https://..."
+                      className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-500 font-mono text-xs focus:outline-none focus:border-cyan-500"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddPhotoUrl();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddPhotoUrl}
+                      className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-lg transition-colors flex items-center gap-1 shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add</span>
+                    </button>
+                  </div>
                 </div>
 
                 {formImages.length > 0 && (

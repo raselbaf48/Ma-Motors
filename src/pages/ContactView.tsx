@@ -1,24 +1,28 @@
 import React, { useState } from 'react';
-import { CustomerInquiry } from '../types/bike';
+import { CustomerInquiry, ShowroomSettings } from '../types/bike';
 import { 
   MapPin, 
   Clock, 
   Mail, 
   Send, 
   Search, 
-  Phone
+  Phone,
+  User,
+  PhoneCall
 } from 'lucide-react';
 
 interface ContactViewProps {
   inquiries: CustomerInquiry[];
   onUpdateInquiryStatus: (id: string, status: CustomerInquiry['status']) => void;
   onSubmitInquiry: (inquiry: Omit<CustomerInquiry, 'id' | 'createdAt'>) => void;
+  settings?: ShowroomSettings;
 }
 
 export const ContactView: React.FC<ContactViewProps> = ({
   inquiries,
   onUpdateInquiryStatus,
-  onSubmitInquiry
+  onSubmitInquiry,
+  settings
 }) => {
   const [activeTab, setActiveTab] = useState<'leads' | 'showroom' | 'new_lead'>('leads');
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +85,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
         <div className="flex items-center gap-2">
           <a
-            href="https://wa.me/8801711890432?text=Hello%20Ma%20Motors,%20I%20have%20an%20inquiry."
+            href={`https://wa.me/${(settings?.whatsapp || '+880 1739-840603').replace(/\D/g, '')}?text=Hello%20${encodeURIComponent(settings?.showroomName || 'Ma Motors')},%20I%20have%20an%20inquiry.`}
             target="_blank"
             rel="noreferrer"
             className="px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-400 font-semibold text-xs rounded-xl transition-colors"
@@ -89,7 +93,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
             WhatsApp
           </a>
           <a
-            href="tel:+8801711890432"
+            href={`tel:${(settings?.hotline || '+880 1739-840603').replace(/\s+/g, '')}`}
             className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs rounded-xl shadow transition-colors flex items-center gap-1.5"
           >
             <Phone className="w-3.5 h-3.5" />
@@ -259,8 +263,44 @@ export const ContactView: React.FC<ContactViewProps> = ({
             <div className="space-y-3 text-xs">
               <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
                 <div className="text-slate-400 text-[11px]">Showroom Name</div>
-                <div className="text-white font-bold text-base">Ma Motors</div>
-                <div className="text-slate-300">Tejgaon Commercial Area, Dhaka 1208, Bangladesh</div>
+                <div className="text-white font-bold text-base">{settings?.showroomName || 'Ma Motors'}</div>
+                <div className="text-slate-300">{settings?.address || '14 No Ghat, South Potenga, Potenga, Chittagong'}</div>
+              </div>
+
+              {/* Showroom Manager Card */}
+              <div className="p-3.5 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 rounded-xl border border-cyan-500/30 flex items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-3">
+                  {settings?.managerPhotoUrl ? (
+                    <img
+                      src={settings.managerPhotoUrl}
+                      alt={settings.managerName || 'Manager'}
+                      className="w-11 h-11 rounded-xl object-cover border-2 border-cyan-500/50 shadow-md shrink-0"
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-md shrink-0">
+                      <User className="w-5 h-5 text-slate-950" />
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider font-mono">
+                      Showroom Manager
+                    </div>
+                    <div className="text-white font-bold text-sm">
+                      {settings?.managerName || 'Saddam Hossain'}
+                    </div>
+                    <div className="text-slate-300 font-mono text-[11px]">
+                      {settings?.managerContact || settings?.hotline || '+880 1739-840603'}
+                    </div>
+                  </div>
+                </div>
+
+                <a
+                  href={`tel:${(settings?.managerContact || settings?.hotline || '+880 1739-840603').replace(/\s+/g, '')}`}
+                  className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5 shrink-0"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Call</span>
+                </a>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -269,8 +309,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
                     <Phone className="w-3.5 h-3.5" />
                     <span>Hotline</span>
                   </div>
-                  <div className="font-mono text-white text-xs">+880 1711-890432</div>
-                  <div className="text-[10px] text-slate-500">9:00 AM - 9:00 PM</div>
+                  <div className="font-mono text-white text-xs">{settings?.hotline || '+880 1739-840603'}</div>
+                  <div className="text-[10px] text-slate-500">{settings?.openingHours || '9:00 AM - 9:00 PM'}</div>
                 </div>
 
                 <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
@@ -278,7 +318,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                     <Mail className="w-3.5 h-3.5" />
                     <span>Email</span>
                   </div>
-                  <div className="font-mono text-white text-xs truncate">mamotors.bd@gmail.com</div>
+                  <div className="font-mono text-white text-xs truncate">{settings?.email || 'mamotors.bd@gmail.com'}</div>
                   <div className="text-[10px] text-slate-500">Inquiry & Sales</div>
                 </div>
               </div>
@@ -288,7 +328,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                   <Clock className="w-4 h-4 text-cyan-400" />
                   <div>
                     <div className="text-white font-semibold">Business Hours</div>
-                    <div className="text-slate-400 text-[11px]">Saturday to Thursday: 9:00 AM - 9:00 PM (Friday: 2:30 PM - 9:00 PM)</div>
+                    <div className="text-slate-400 text-[11px]">{settings?.openingHours || 'Saturday to Thursday: 9:00 AM - 9:00 PM'}</div>
                   </div>
                 </div>
               </div>
@@ -303,11 +343,11 @@ export const ContactView: React.FC<ContactViewProps> = ({
               <div className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                 <div className="text-slate-300">
-                  <span className="font-semibold text-white">Landmark:</span> Near Tejgaon Link Road, Dhaka.
+                  <span className="font-semibold text-white">Location:</span> 14 No Ghat, South Potenga, Potenga, Chittagong.
                 </div>
               </div>
               <p className="text-slate-400 text-[11px]">
-                Easily accessible from Gulshan, Mohakhali, and Banani. Visitor parking available.
+                Conveniently located near 14 No Ghat, South Potenga. Ample parking and bike inspection area available.
               </p>
             </div>
           </div>

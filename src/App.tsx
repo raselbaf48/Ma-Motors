@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Bike, 
   ActivePage, 
@@ -16,6 +16,7 @@ import {
   INITIAL_SALES,
   DEFAULT_SETTINGS
 } from './data/mockBikes';
+import { findModelSpec, getModelDefaultImage, getModelDefaultBrakingSystem } from './data/bangladeshBikes';
 
 import { AppSidebar } from './components/layout/AppSidebar';
 import { AppTopBar } from './components/layout/AppTopBar';
@@ -33,8 +34,11 @@ import { AddBikePage } from './pages/AddBikePage';
 export default function App() {
   // Navigation: Default to 'dashboard' (Option 1)
   const [currentPage, setCurrentPage] = useState<ActivePage>('dashboard');
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  // Sidebar hidden by default on all devices like mobile view
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Reference to main scroll container to ensure scroll resets to top upon navigation
+  const mainScrollRef = useRef<HTMLElement>(null);
 
   // Core Data States
   const [bikes, setBikes] = useState<Bike[]>(INITIAL_BIKES);
@@ -51,14 +55,19 @@ export default function App() {
   const [isStockAddModalOpen, setIsStockAddModalOpen] = useState(false);
   const [isPurchaseAddModalOpen, setIsPurchaseAddModalOpen] = useState(false);
 
-  // Scroll to top on page navigation
+  // Scroll to top on page navigation so user always starts from the top of the page
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
   }, [currentPage]);
 
   const handleNavigate = (page: ActivePage) => {
     setCurrentPage(page);
-    setMobileSidebarOpen(false);
+    setSidebarOpen(false); // Hide sidebar immediately upon clicking any option
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
   };
 
   // Bike Inspection & Specs viewer
@@ -88,6 +97,12 @@ export default function App() {
     setPurchases((prev) => [record, ...prev]);
 
     if (alsoAddToStock) {
+      const spec = findModelSpec(record.brand, record.model);
+      const defaultImg = spec?.image || getModelDefaultImage(record.brand, record.model);
+      const fuelSupply = spec?.fuelSupply || 'FI';
+      const effectiveCc = spec?.cc || 150;
+      const category = spec?.category || 'Sport';
+
       const newBike: Bike = {
         id: `bike-${Date.now()}`,
         name: record.bikeName,
@@ -101,15 +116,17 @@ export default function App() {
         askingPrice: record.estimatedSellingPrice,
         price: record.estimatedSellingPrice,
         originalPrice: Math.round(record.estimatedSellingPrice * 1.15),
-        cc: 155,
+        cc: effectiveCc,
         mileageKm: record.mileageKm,
         conditionGrade: record.conditionGrade,
         conditionLabel: record.conditionGrade === 'A+' ? 'Showroom Mint' : 'Inspected Good',
-        fuelType: 'Petrol',
+        fuelType: spec?.fuelType || 'Petrol',
+        fuelSupply,
+        brakingSystem: getModelDefaultBrakingSystem(record.brand, record.model, effectiveCc),
         transmission: 'Manual',
-        color: 'Showroom Edition Cyan',
+        color: 'Showroom Verified',
         colorHex: '#06b6d4',
-        category: 'Sport',
+        category,
         featured: false,
         inStock: true,
         status: 'Available',
@@ -117,19 +134,21 @@ export default function App() {
         registrationCity: 'Dhaka North',
         ownersCount: 1,
         warrantyMonths: 12,
-        images: ['yamaha-r15-1'],
+        images: [defaultImg],
         documentPdfName: 'BRTA_Procurement_Record.pdf',
         specs: {
-          engine: '155cc 4-Stroke Engine',
-          maxPower: '18 HP @ 9500 RPM',
-          maxTorque: '14.1 Nm @ 7500 RPM',
-          fuelTankCapacity: '11 L',
-          topSpeed: '138 km/h',
-          curbWeight: '140 kg',
-          seatHeight: '810 mm',
+          engine: `${effectiveCc}cc ${fuelSupply} 4-Stroke Engine`,
+          maxPower: `${Math.round(effectiveCc / 9)} HP`,
+          maxTorque: `${Math.round(effectiveCc / 11)} Nm`,
+          fuelTankCapacity: '12 L',
+          topSpeed: `${effectiveCc >= 200 ? 145 : effectiveCc >= 150 ? 132 : 105} km/h`,
+          curbWeight: `${effectiveCc >= 200 ? 165 : 138} kg`,
+          seatHeight: '800 mm',
           frontBrake: 'Disc ABS',
           rearBrake: 'Disc',
-          absType: 'Dual Channel ABS',
+          absType: effectiveCc >= 150 ? 'Single/Dual ABS' : 'Standard Disc',
+          brakingSystem: getModelDefaultBrakingSystem(record.brand, record.model, effectiveCc),
+          fuelSupply,
           tyreConditionPct: 92,
           batteryHealthPct: 96
         },
@@ -209,17 +228,13 @@ export default function App() {
   const totalInvestment = purchases.reduce((sum, p) => sum + p.purchasePrice, 0);
 
   const handleToggleSidebar = () => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setMobileSidebarOpen((prev) => !prev);
-    } else {
-      setDesktopSidebarOpen((prev) => !prev);
-    }
+    setSidebarOpen((prev) => !prev);
   };
 
-  // Dedicated Full-Page Add Bike View (No Sidebar, No TopBar, pure dedicated page)
+  // Dedicated Full-Page Add Bike View (Scrollable full height dedicated page)
   if (currentPage === 'add-bike') {
     return (
-      <div key="add-bike-page" className="animate-page-enter min-h-screen bg-slate-950">
+      <div key="add-bike-page" className="animate-page-enter fixed inset-0 w-screen h-screen overflow-y-auto overflow-x-hidden bg-slate-950">
         <AddBikePage
           onBack={() => setCurrentPage('stock')}
           onAddBike={(newBike) => {
@@ -232,10 +247,10 @@ export default function App() {
     );
   }
 
-  // Dedicated Full-Page Additional Cost Management View (No Sidebar, No TopBar, pure dedicated page)
+  // Dedicated Full-Page Additional Cost Management View (Scrollable full height dedicated page)
   if (currentPage === 'cost' && selectedBike) {
     return (
-      <div key={`cost-${selectedBike.id}`} className="animate-page-enter min-h-screen bg-slate-950">
+      <div key={`cost-${selectedBike.id}`} className="animate-page-enter fixed inset-0 w-screen h-screen overflow-y-auto overflow-x-hidden bg-slate-950">
         <AdditionalCostPage
           bike={selectedBike}
           onBack={() => setCurrentPage('details')}
@@ -250,10 +265,10 @@ export default function App() {
     );
   }
 
-  // Dedicated Full-Page Bike Details View (No Sidebar, No TopBar, pure independent page with animation)
+  // Dedicated Full-Page Bike Details View (Scrollable full height dedicated page)
   if (currentPage === 'details' && selectedBike) {
     return (
-      <div key={`details-${selectedBike.id}`} className="animate-page-enter min-h-screen bg-slate-950">
+      <div key={`details-${selectedBike.id}`} className="animate-page-enter fixed inset-0 w-screen h-screen overflow-y-auto overflow-x-hidden bg-slate-950">
         <BikeDetailView
           bike={selectedBike}
           onBack={() => setCurrentPage('stock')}
@@ -281,40 +296,42 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans">
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-row font-sans select-none">
       <AppSidebar
         currentPage={currentPage}
         onNavigate={handleNavigate}
         bikesCount={bikes.length}
         inStockCount={inStockCount}
         inquiriesCount={inquiries.length}
-        mobileOpen={mobileSidebarOpen}
-        onCloseMobile={() => setMobileSidebarOpen(false)}
-        desktopOpen={desktopSidebarOpen}
-        onToggleDesktop={() => setDesktopSidebarOpen((prev) => !prev)}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         showroomName={settings.showroomName || 'Ma Motors'}
         logoUrl={settings.logoUrl}
+        hotline={settings.hotline}
+        address={settings.address}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
-        {/* Top Bar with toggle trigger, page status, quick actions & hotline */}
-        <AppTopBar
-          currentPage={currentPage}
-          onNavigate={handleNavigate}
-          onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
-          onToggleSidebar={handleToggleSidebar}
-          onQuickAddBike={() => setIsStockAddModalOpen(true)}
-          onQuickAddPurchase={() => setIsPurchaseAddModalOpen(true)}
-          inStockCount={inStockCount}
-          totalInvestment={totalInvestment}
-          hotline={settings.hotline}
-          showroomName={settings.showroomName || 'Ma Motors'}
-          logoUrl={settings.logoUrl}
-        />
+      {/* Main Content Area - In flex-row, so desktop push sidebar never obscures right side content! */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden transition-all duration-300 relative">
+        {/* Top Bar with 3-bar toggle button, page title, quick actions & hotline - Permanently Fixed */}
+        <div className="shrink-0 z-30 w-full">
+          <AppTopBar
+            currentPage={currentPage}
+            onNavigate={handleNavigate}
+            onOpenMobileSidebar={() => setSidebarOpen(true)}
+            onToggleSidebar={handleToggleSidebar}
+            onQuickAddBike={() => setIsStockAddModalOpen(true)}
+            onQuickAddPurchase={() => setIsPurchaseAddModalOpen(true)}
+            inStockCount={inStockCount}
+            totalInvestment={totalInvestment}
+            hotline={settings.hotline}
+            showroomName={settings.showroomName || 'Ma Motors'}
+            logoUrl={settings.logoUrl}
+          />
+        </div>
 
         {/* Viewport for the 6 Sidebar Modules with Page Entrance Animation */}
-        <main className="flex-1 bg-slate-950 overflow-x-hidden min-h-0">
+        <main ref={mainScrollRef} className="flex-1 bg-slate-950 overflow-y-auto overflow-x-hidden min-h-0">
           <div key={currentPage} className="animate-page-enter w-full min-h-full">
             {/* 1. Dashboard */}
             {(currentPage === 'dashboard' || currentPage === 'home') && (
@@ -379,6 +396,7 @@ export default function App() {
                 inquiries={inquiries}
                 onUpdateInquiryStatus={handleUpdateInquiryStatus}
                 onSubmitInquiry={handleAddInquiry}
+                settings={settings}
               />
             )}
 

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Bike } from '../types/bike';
 import { formatBDT } from '../utils/formatters';
 import { SearchableSelect } from '../components/common/SearchableSelect';
-import { BD_BRANDS, BD_MODEL_DATABASE, BDModelSpec } from '../data/bangladeshBikes';
+import { BD_BRANDS, BD_MODEL_DATABASE, BDModelSpec, getModelDefaultImage, getModelDefaultBrakingSystem, BIKE_PICS } from '../data/bangladeshBikes';
 export type { BDModelSpec };
 export { BD_BRANDS, BD_MODEL_DATABASE };
 import { 
@@ -11,7 +11,6 @@ import {
   Check, 
   DollarSign, 
   FileText, 
-  Camera, 
   Zap,
   CreditCard,
   Fingerprint,
@@ -20,7 +19,13 @@ import {
   AlertCircle,
   Sparkles,
   Layers,
-  User
+  User,
+  RotateCcw,
+  Trash2,
+  Star,
+  Plus,
+  ImageIcon,
+  ShieldCheck
 } from 'lucide-react';
 
 interface AddBikePageProps {
@@ -131,26 +136,6 @@ const BRTA_OFFICES: BRTAOffice[] = [
   { id: 'sherpur', name: 'Sherpur (শেরপুর)', seriesPrefix: 'Sherpur' }
 ];
 
-
-const SAMPLE_PRESET_IMAGES = [
-  {
-    name: 'Yamaha Cyan Sport',
-    url: 'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    name: 'Dark Sport Bike',
-    url: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    name: 'Street Fighter Naked',
-    url: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    name: 'Royal Cruiser',
-    url: 'https://images.unsplash.com/photo-1558980664-769d59546b3d?auto=format&fit=crop&w=1200&q=80'
-  }
-];
-
 interface UploadedDocumentItem {
   id: string;
   name: string;
@@ -180,6 +165,7 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
   const [fuelSupply, setFuelSupply] = useState<'FI' | 'Carburetor' | 'Electric' | ''>('');
   const [mileageKm, setMileageKm] = useState<number | ''>('');
   const [fuelType, setFuelType] = useState<string>('');
+  const [brakingSystem, setBrakingSystem] = useState<string>('Single Channel ABS');
   const [color, setColor] = useState('');
 
   // 3. Papers & BRTA Documents (NO defaults)
@@ -203,8 +189,8 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
   const [buyingPrice, setBuyingPrice] = useState<number | ''>('');
   const [askingPrice, setAskingPrice] = useState<number | ''>('');
 
-  // 5. Photos & Remarks
-  const [imageUrl, setImageUrl] = useState(SAMPLE_PRESET_IMAGES[0].url);
+  // 5. Photos & Remarks (REAL MULTI-PHOTO UPLOAD)
+  const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const [customUrlInput, setCustomUrlInput] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -220,13 +206,17 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
 
   // Find active BRTA office object
   const currentBrta = BRTA_OFFICES.find((b) => b.id === selectedBrtaId);
+  const isRegistered = Boolean(selectedBrtaId && selectedBrtaId.trim() !== '');
 
   // Auto calculate BRTA registration number
-  const prefix = currentBrta ? currentBrta.seriesPrefix : 'Dhaka Metro';
+  // If NO BRTA circle is selected, Registration No is literally "ON TEST"
+  const prefix = currentBrta ? currentBrta.seriesPrefix : '';
   const alpha = regAlphabet || (typeof cc === 'number' && cc <= 125 ? 'HA' : 'LA');
   const displaySerial = regSerial.trim() || '55';
   const displayNumber = regNumberCode.trim() || '1234';
-  const computedRegNumber = `${prefix}-${alpha}-${displaySerial}-${displayNumber}`;
+  const computedRegNumber = isRegistered
+    ? `${prefix}-${alpha}-${displaySerial}-${displayNumber}`
+    : 'ON TEST';
 
   // Filter models based on Brand and Category
   const filteredModels = useMemo(() => {
@@ -258,7 +248,7 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
     setAutoFilledNotice(null);
   };
 
-  // When Model changes: AUTO-FILL CC, Fuel Supply (FI/Carb), Fuel Type, Category, and Bike Picture!
+  // When Model changes: AUTO-FILL CC, Fuel Supply (FI/Carb), Braking System, Fuel Type, Category (NO preset pictures)
   const handleModelChange = (selectedVal: string) => {
     if (selectedVal === '__CUSTOM__') {
       setIsCustomModel(true);
@@ -287,11 +277,9 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
         // Auto fill Fuel Type
         setFuelType(foundSpec.fuelType);
 
-        // Auto fill default bike picture for this model!
-        if (foundSpec.image) {
-          setImageUrl(foundSpec.image);
-          setCustomUrlInput('');
-        }
+        // Auto-detect braking system directly from model
+        const autoBrake = getModelDefaultBrakingSystem(brand, selectedVal, foundSpec.cc);
+        setBrakingSystem(autoBrake);
 
         // Auto fill Category if not already selected
         if (!category) {
@@ -305,11 +293,62 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
           setRegAlphabet('LA');
         }
 
-        // Flash auto-fill notice
-        setAutoFilledNotice(`মডেল অনুযায়ী লোড হয়েছে: ${foundSpec.cc}cc · ${foundSpec.fuelSupply || 'Carb'} · ${foundSpec.fuelType} · ${foundSpec.category} (বাইকের ছবি যুক্ত হয়েছে)`);
+        // Flash auto-fill notice (Specs only, no preset photo message)
+        setAutoFilledNotice(`মডেল অনুযায়ী স্বয়ংক্রিয়ভাবে লোড হয়েছে: ${foundSpec.cc}cc · ${foundSpec.fuelSupply || 'Carb'} · ব্রেকিং: ${autoBrake}`);
         setTimeout(() => setAutoFilledNotice(null), 4000);
+      } else {
+        // Auto-detect braking system for non-standard models
+        const autoBrake = getModelDefaultBrakingSystem(brand, selectedVal);
+        if (autoBrake) {
+          setBrakingSystem(autoBrake);
+        }
       }
     }
+  };
+
+  // Multi-photo file upload handler from gallery / file chooser (No camera)
+  const handleBikePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setUploadedPhotos((prev) => [...prev, event.target!.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    // Reset so same files can be re-selected if desired
+    e.target.value = '';
+  };
+
+  // Add real photo via external image URL
+  const handleAddPhotoByUrl = () => {
+    const trimmed = customUrlInput.trim();
+    if (!trimmed) return;
+    setUploadedPhotos((prev) => [...prev, trimmed]);
+    setCustomUrlInput('');
+  };
+
+  // Remove photo by index
+  const handleRemovePhoto = (idxToRemove: number) => {
+    setUploadedPhotos((prev) => prev.filter((_, idx) => idx !== idxToRemove));
+  };
+
+  // Set any photo as the primary cover photo
+  const handleSetCoverPhoto = (idxToCover: number) => {
+    setUploadedPhotos((prev) => {
+      const target = prev[idxToCover];
+      const remaining = prev.filter((_, idx) => idx !== idxToCover);
+      return [target, ...remaining];
+    });
+  };
+
+  // Clear all uploaded photos
+  const handleClearAllPhotos = () => {
+    setUploadedPhotos([]);
   };
 
   // Manual CC change handler
@@ -345,23 +384,26 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
   const numAskingPrice = Number(askingPrice) || 0;
   const projectedProfit = numAskingPrice - numBuyingPrice;
   const projectedMarginPct = numAskingPrice > 0 ? Math.round((projectedProfit / numAskingPrice) * 100) : 0;
+  const heroImageSrc = uploadedPhotos.length > 0 ? uploadedPhotos[0] : '';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Smart Card is strictly mandatory
-    if (!smartCardStatus) {
-      setSmartCardError(true);
-      const el = document.getElementById('smart-card-section');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
+    // Smart Card is only required IF a BRTA circle is selected (registered bike)
+    if (isRegistered) {
+      if (!smartCardStatus) {
+        setSmartCardError(true);
+        const el = document.getElementById('smart-card-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
 
-    if (smartCardStatus === 'No' && !fingerprintDone) {
-      setSmartCardError(true);
-      const el = document.getElementById('smart-card-section');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-      return;
+      if (smartCardStatus === 'No' && !fingerprintDone) {
+        setSmartCardError(true);
+        const el = document.getElementById('smart-card-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
     }
 
     setSmartCardError(false);
@@ -378,7 +420,6 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
     const bikeBrand = brand.trim() || 'Motorcycle';
     const bikeModel = effectiveModel || 'Standard';
     const bikeTitle = `${bikeBrand} ${bikeModel}`.trim();
-    const finalImage = customUrlInput.trim() || imageUrl || SAMPLE_PRESET_IMAGES[0].url;
 
     const currentYear = new Date().getFullYear();
     const parsedMfgYear = Number(mfgYear) || currentYear;
@@ -403,6 +444,7 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
       conditionLabel: 'Verified',
       fuelType: (fuelType as any) || 'Petrol',
       fuelSupply: (fuelSupply as any) || 'FI',
+      brakingSystem: brakingSystem || 'Single Channel ABS',
       transmission: 'Manual',
       color: color.trim() || 'Black',
       colorHex: '#06b6d4',
@@ -414,8 +456,8 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
       registrationCity: prefix,
       ownersCount: Number(ownersCount) || 1,
       warrantyMonths: 12,
-      smartCardStatus,
-      fingerprintDone: smartCardStatus === 'No' ? (fingerprintDone || 'No') : undefined,
+      smartCardStatus: isRegistered && smartCardStatus ? smartCardStatus : undefined,
+      fingerprintDone: isRegistered && smartCardStatus === 'No' ? (fingerprintDone || 'No') : undefined,
       uploadedDocuments: uploadedDocs,
       sellerInfo: {
         name: sellerName.trim(),
@@ -426,7 +468,7 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
         memoOrStampNo: memoOrStampNo.trim() || undefined,
         notes: sellerNotes.trim() || undefined,
       },
-      images: [finalImage],
+      images: uploadedPhotos,
       documentPdfName: uploadedDocs.length > 0 ? uploadedDocs[0].name : 'BRTA_Papers.pdf',
       specs: {
         engine: `${effectiveCc}cc ${fuelSupply || 'FI'} Single Cylinder`,
@@ -437,9 +479,10 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
         topSpeed: '135 km/h',
         curbWeight: '140 kg',
         seatHeight: '800 mm',
-        frontBrake: 'Disc ABS',
-        rearBrake: 'Disc',
-        absType: 'Single Channel',
+        frontBrake: brakingSystem === 'Drum Brakes' ? 'Drum Brake' : 'Hydraulic Disc',
+        rearBrake: brakingSystem.includes('Dual') ? 'Hydraulic Disc' : 'Drum Brake',
+        absType: brakingSystem || 'Single Channel ABS',
+        brakingSystem: brakingSystem || 'Single Channel ABS',
         tyreConditionPct: 90,
         batteryHealthPct: 95
       },
@@ -498,9 +541,9 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
             onClick={onBack}
             title={`${showroomName} - Showroom Logo`}
           >
-            {logoUrl && !logoError ? (
+            {Boolean(logoUrl && logoUrl.trim()) && !logoError ? (
               <img 
-                src={logoUrl} 
+                src={logoUrl!} 
                 alt={showroomName} 
                 onError={() => setLogoError(true)} 
                 className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover border-2 border-cyan-500/50 shadow-md shadow-cyan-500/20 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 
@@ -529,24 +572,38 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-0">
               {/* Photo Preview */}
-              <div className="md:col-span-5 relative bg-slate-950 h-52 md:h-auto overflow-hidden">
-                <img 
-                  src={customUrlInput || imageUrl} 
-                  alt={effectiveModel ? `${brand} ${effectiveModel}` : 'Bike Preview'}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = SAMPLE_PRESET_IMAGES[0].url;
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
-                <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs">
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur-md border border-cyan-500/30 text-cyan-300 font-mono font-bold">
-                    {category || 'Motorcycle'} · {effectiveCc}cc {fuelSupply ? `· ${fuelSupply}` : ''}
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur-md border border-slate-700 text-slate-300 font-mono font-medium">
-                    {prefix}
-                  </span>
-                </div>
+              <div className="md:col-span-5 relative bg-slate-950 min-h-[190px] h-52 md:h-auto overflow-hidden flex items-center justify-center">
+                {heroImageSrc ? (
+                  <>
+                    <img 
+                      src={heroImageSrc} 
+                      alt={effectiveModel ? `${brand} ${effectiveModel}` : 'Bike Preview'}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
+                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs">
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur-md border border-cyan-500/30 text-cyan-300 font-mono font-bold">
+                        {category || 'Motorcycle'} · {effectiveCc}cc {fuelSupply ? `· ${fuelSupply}` : ''} {brakingSystem ? `· ${brakingSystem}` : ''}
+                      </span>
+                      {uploadedPhotos.length > 1 && (
+                        <span className="px-2 py-1 rounded-lg bg-slate-950/80 backdrop-blur-md border border-cyan-500/40 text-cyan-300 font-mono text-[11px] flex items-center gap-1 font-semibold">
+                          <Camera className="w-3.5 h-3.5" /> {uploadedPhotos.length} Photos
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500 w-full h-full">
+                    <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 mb-2 text-slate-400">
+                      <Camera className="w-8 h-8 stroke-[1.5]" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-300">কোনো আসল ছবি আপলোড করা হয়নি</span>
+                    <span className="text-[11px] text-slate-500 mt-0.5">নিচে সেকশন ৫ থেকে শোরুমের বাস্তব ছবি যোগ করুন</span>
+                    <span className="mt-2 text-[10px] text-cyan-400 font-mono px-2 py-0.5 rounded-full bg-cyan-950/50 border border-cyan-800/50 font-medium">
+                      একাধিক ছবি সাপোর্ট করে
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Live Preview Info */}
@@ -806,6 +863,130 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                 </div>
               </div>
 
+              {/* Fuel Supply Option: Fi / Carb (Auto fill with model) */}
+              <div className="pt-1">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-slate-300 font-semibold flex items-center gap-1.5 text-xs">
+                    <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Engine Fuel Supply (ফুয়েল সিস্টেম): Fi / Carb</span>
+                    <span className="text-rose-400 font-bold">*</span>
+                  </label>
+                  {fuelSupply && (
+                    <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">
+                      <Sparkles className="w-3 h-3" />
+                      {model && !isCustomModel ? `Auto-filled: ${fuelSupply}` : 'Selected'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {/* FI Option Button */}
+                  <button
+                    type="button"
+                    onClick={() => setFuelSupply('FI')}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      fuelSupply === 'FI'
+                        ? 'bg-gradient-to-br from-cyan-500/25 to-cyan-500/5 border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/40 font-bold shadow-md shadow-cyan-500/10'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-black tracking-wide font-mono">FI</span>
+                      {fuelSupply === 'FI' && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                    </div>
+                    <span className="text-[10px] text-slate-400 mt-0.5 font-medium">Fuel Injection (ইনজেকশন)</span>
+                  </button>
+
+                  {/* Carburetor Option Button */}
+                  <button
+                    type="button"
+                    onClick={() => setFuelSupply('Carburetor')}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      fuelSupply === 'Carburetor'
+                        ? 'bg-gradient-to-br from-amber-500/25 to-amber-500/5 border-amber-400 text-amber-300 ring-2 ring-amber-500/40 font-bold shadow-md shadow-amber-500/10'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-black tracking-wide font-mono">Carb</span>
+                      {fuelSupply === 'Carburetor' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    </div>
+                    <span className="text-[10px] text-slate-400 mt-0.5 font-medium">Carburetor (কার্বুরেটর)</span>
+                  </button>
+
+                  {/* Electric Option Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFuelSupply('Electric');
+                      setFuelType('Electric');
+                    }}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer col-span-2 sm:col-span-1 ${
+                      fuelSupply === 'Electric'
+                        ? 'bg-gradient-to-br from-emerald-500/25 to-emerald-500/5 border-emerald-400 text-emerald-300 ring-2 ring-emerald-500/40 font-bold shadow-md shadow-emerald-500/10'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-black tracking-wide font-mono">Electric</span>
+                      {fuelSupply === 'Electric' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    </div>
+                    <span className="text-[10px] text-slate-400 mt-0.5 font-medium">Battery EV (ব্যাটারি)</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                  {model ? `✓ মডেল অনুযায়ী স্বয়ংক্রিয়ভাবে "${fuelSupply || 'FI'}" সিলেক্ট হয়েছে। প্রয়োজনে পরিবর্তন করতে পারেন।` : 'মডেল সিলেক্ট করলে Fi / Carb অটো ফিল হবে।'}
+                </p>
+              </div>
+
+              {/* Braking System Selector (Dual Channel ABS, Single Channel ABS, CBS, Dual Disc, Disc + Drum, Drum) */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-slate-300 font-semibold flex items-center gap-1.5 text-xs">
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Braking System (বাইকের ব্রেকিং সিস্টেম)</span>
+                    <span className="text-rose-400 font-bold">*</span>
+                  </label>
+                  {brakingSystem && (
+                    <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">
+                      <Sparkles className="w-3 h-3" />
+                      {model && !isCustomModel ? `Auto-filled: ${brakingSystem}` : 'Selected'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'Dual Channel ABS', label: 'Dual Channel ABS', desc: 'সামনে ও পেছনে দুই চাকাতেই ABS' },
+                    { id: 'Single Channel ABS', label: 'Single Channel ABS', desc: 'সামনে ABS + পেছনে ডিস্ক/ড্রাম' },
+                    { id: 'CBS', label: 'CBS (Combi Brake)', desc: 'কম্বাইন্ড ব্রেকিং সিস্টেম' },
+                    { id: 'Dual Disc', label: 'Dual Disc', desc: 'সামনে ও পেছনে দুই চাকাতেই ডিস্ক' },
+                    { id: 'Front Disc / Rear Drum', label: 'Disc + Drum', desc: 'সামনে ডিস্ক, পেছনে ড্রাম' },
+                    { id: 'Drum Brakes', label: 'Drum Brakes', desc: 'দুই চাকাতেই ড্রাম ব্রেক' }
+                  ].map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setBrakingSystem(option.id)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        brakingSystem === option.id
+                          ? 'bg-gradient-to-br from-cyan-500/25 to-cyan-500/5 border-cyan-400 text-white ring-2 ring-cyan-500/40 font-bold shadow-md shadow-cyan-500/10'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold font-mono tracking-tight">{option.label}</span>
+                        {brakingSystem === option.id && <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-normal mt-0.5 leading-tight">{option.desc}</div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                  {model ? `✓ মডেল অনুযায়ী স্বয়ংক্রিয়ভাবে "${brakingSystem}" সিলেক্ট হয়েছে। যেকোনোটিতে ক্লিক করে পরিবর্তন করতে পারেন।` : 'মডেল অনুযায়ী ব্রেকিং সিস্টেম অটো ফিল হবে।'}
+                </p>
+              </div>
+
               {/* Fuel Type and Color */}
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
@@ -864,167 +1045,205 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
 
               {/* BRTA Circle Selection Dropdown with Searchable Modal */}
               <div className="text-xs space-y-1">
-                <label className="text-slate-300 block font-semibold">
-                  BRTA Circle (বিআরটিএ সার্কেল):
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 block font-semibold">
+                    BRTA Circle (বিআরটিএ সার্কেল):
+                  </label>
+                  {selectedBrtaId && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedBrtaId('')}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 font-mono underline cursor-pointer"
+                    >
+                      Reset to ON TEST (অন টেস্ট করুন)
+                    </button>
+                  )}
+                </div>
                 <SearchableSelect
                   label="Select BRTA Circle (বিআরটিএ সার্কেল নির্বাচন করুন)"
-                  placeholder="-- Select BRTA Circle (সার্কেল নির্বাচন করুন) --"
+                  placeholder="-- অন টেস্ট / বিআরটিএ সার্কেল ছাড়া (ON TEST) --"
                   searchPlaceholder="সার্কেল লিখে খুঁজুন (e.g. Mirpur, Ekuria, Savar, Sylhet, Gazipur...)"
                   value={selectedBrtaId}
-                  options={BRTA_OFFICES.map((b) => ({
-                    value: b.id,
-                    label: b.name,
-                    badge: b.seriesPrefix
-                  }))}
+                  options={[
+                    { value: '', label: '-- কোনো বিআরটিএ সার্কেল নেই / অন টেস্ট (ON TEST) --', badge: 'ON TEST' },
+                    ...BRTA_OFFICES.map((b) => ({
+                      value: b.id,
+                      label: b.name,
+                      badge: b.seriesPrefix
+                    }))
+                  ]}
                   onChange={(val) => setSelectedBrtaId(val)}
                   allowCustom={false}
                 />
               </div>
 
-              {/* 4 Clean Boxes without micro-labels */}
-              <div className="space-y-1.5 pt-1">
-                <div className="grid grid-cols-12 gap-2 text-xs font-mono">
-                  {/* Box 1: Prefix */}
-                  <div className="col-span-4 flex items-center justify-center p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-cyan-300 font-bold text-xs truncate">
-                    {prefix}
-                  </div>
-
-                  {/* Box 2: Alphabet */}
-                  <div className="col-span-3">
-                    <select
-                      value={alpha}
-                      onChange={(e) => setRegAlphabet(e.target.value)}
-                      className="w-full bg-slate-950 border border-cyan-500/50 rounded-xl p-2.5 text-cyan-300 font-bold focus:outline-none focus:border-cyan-400 text-xs cursor-pointer"
-                    >
-                      <option value="HA">HA (হ)</option>
-                      <option value="LA">LA (ল)</option>
-                      <option value="MA">MA (ম)</option>
-                      <option value="DA">DA (দ)</option>
-                      <option value="KA">KA (ক)</option>
-                      <option value="GA">GA (গ)</option>
-                    </select>
-                  </div>
-
-                  {/* Box 3: Serial with demo placeholder */}
-                  <div className="col-span-2">
-                    <input
-                      type="text"
-                      maxLength={3}
-                      value={regSerial}
-                      onChange={(e) => setRegSerial(e.target.value)}
-                      placeholder="55"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-bold text-center focus:outline-none focus:border-cyan-500 placeholder-slate-600"
-                    />
-                  </div>
-
-                  {/* Box 4: 4-Digits with demo placeholder */}
-                  <div className="col-span-3">
-                    <input
-                      type="text"
-                      maxLength={4}
-                      value={regNumberCode}
-                      onChange={(e) => setRegNumberCode(e.target.value)}
-                      placeholder="1234"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-bold text-center focus:outline-none focus:border-cyan-500 placeholder-slate-600"
-                    />
-                  </div>
-                </div>
-
-                {/* Composed Live Registration Number Display */}
-                <div className="mt-1 p-2 bg-slate-950/90 border border-cyan-500/20 rounded-xl flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-400 text-[11px]">রেজিস্ট্রেশন নম্বর:</span>
-                  <span className="text-cyan-400 font-bold text-xs tracking-wide">
-                    {computedRegNumber}
-                  </span>
-                </div>
-              </div>
-
-              {/* Smart Card Option: MUST BE SELECTED, NO DEFAULT */}
-              <div id="smart-card-section" className={`pt-2 space-y-2 border-t rounded-xl transition-all ${
-                smartCardError ? 'border-rose-500/80 p-2 bg-rose-500/5' : 'border-slate-800/80'
-              }`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                  <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-                    <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Smart Card (স্মার্ট কার্ড) <span className="text-rose-400 font-bold">*</span>:</span>
-                  </span>
-                  
-                  {/* Smart Card Status Buttons - Unselected by default */}
-                  <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
-                    {(['Yes', 'No', 'Pending'] as const).map((status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => {
-                          setSmartCardStatus(status);
-                          setSmartCardError(false);
-                          if (status !== 'No') {
-                            setFingerprintDone(null);
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                          smartCardStatus === status
-                            ? status === 'Yes' 
-                              ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
-                              : status === 'Pending'
-                              ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
-                              : 'bg-rose-500 text-white shadow-md font-bold'
-                            : 'text-slate-400 hover:text-white bg-transparent'
-                        }`}
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Validation message if user missed selecting Smart Card */}
-                {smartCardError && !smartCardStatus && (
-                  <p className="text-rose-400 text-[11px] font-medium flex items-center gap-1 mt-1">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>স্মার্ট কার্ড অপশনটি অবশ্যই নির্বাচন করতে হবে (Yes, No বা Pending)।</span>
-                  </p>
-                )}
-
-                {/* If Smart Card is "No", dynamically show Fingerprint option (MUST SELECT) */}
-                {smartCardStatus === 'No' && (
-                  <div className="p-2.5 bg-slate-950/90 border border-amber-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-all">
-                    <span className="text-amber-400 font-medium flex items-center gap-1.5">
-                      <Fingerprint className="w-4 h-4 text-amber-400" />
-                      <span>Fingerprint (ফিঙ্গারপ্রিন্ট দেওয়া হয়েছে?) <span className="text-rose-400 font-bold">*</span>:</span>
+              {/* If NO BRTA circle selected: Registration No is literally "ON TEST" */}
+              {!isRegistered ? (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2 text-xs font-mono">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 text-[11px]">রেজিস্ট্রেশন স্ট্যাটাস:</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500 text-slate-950 font-black text-xs rounded tracking-wider shadow">
+                      ON TEST
                     </span>
-                    <div className="flex items-center gap-1.5 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
-                      {(['Yes', 'No'] as const).map((fp) => (
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-amber-500/20">
+                    <span className="text-slate-400 text-[11px]">রেজিস্ট্রেশন নম্বর:</span>
+                    <span className="text-amber-300 font-bold text-sm tracking-wide">
+                      ON TEST
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                    কোনো বিআরটিএ সার্কেল সিলেক্ট করা না থাকায় রেজিস্ট্রেশন নম্বর <strong className="text-amber-300">ON TEST</strong> থাকবে এবং এই বাইকের ক্ষেত্রে কোনো স্মার্ট কার্ডের অপশন প্রযোজ্য হবে না।
+                  </p>
+                </div>
+              ) : (
+                /* 4 Clean Boxes when a BRTA Circle is selected */
+                <div className="space-y-1.5 pt-1">
+                  <div className="grid grid-cols-12 gap-2 text-xs font-mono">
+                    {/* Box 1: Prefix */}
+                    <div className="col-span-4 flex items-center justify-center p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-cyan-300 font-bold text-xs truncate">
+                      {prefix}
+                    </div>
+
+                    {/* Box 2: Alphabet */}
+                    <div className="col-span-3">
+                      <select
+                        value={alpha}
+                        onChange={(e) => setRegAlphabet(e.target.value)}
+                        className="w-full bg-slate-950 border border-cyan-500/50 rounded-xl p-2.5 text-cyan-300 font-bold focus:outline-none focus:border-cyan-400 text-xs cursor-pointer"
+                      >
+                        <option value="HA">HA (হ)</option>
+                        <option value="LA">LA (ল)</option>
+                        <option value="MA">MA (ম)</option>
+                        <option value="DA">DA (দ)</option>
+                        <option value="KA">KA (ক)</option>
+                        <option value="GA">GA (গ)</option>
+                      </select>
+                    </div>
+
+                    {/* Box 3: Serial with demo placeholder */}
+                    <div className="col-span-2">
+                      <input
+                        type="text"
+                        maxLength={3}
+                        value={regSerial}
+                        onChange={(e) => setRegSerial(e.target.value)}
+                        placeholder="55"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-bold text-center focus:outline-none focus:border-cyan-500 placeholder-slate-600"
+                      />
+                    </div>
+
+                    {/* Box 4: 4-Digits with demo placeholder */}
+                    <div className="col-span-3">
+                      <input
+                        type="text"
+                        maxLength={4}
+                        value={regNumberCode}
+                        onChange={(e) => setRegNumberCode(e.target.value)}
+                        placeholder="1234"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-bold text-center focus:outline-none focus:border-cyan-500 placeholder-slate-600"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Composed Live Registration Number Display */}
+                  <div className="mt-1 p-2 bg-slate-950/90 border border-cyan-500/20 rounded-xl flex items-center justify-between text-xs font-mono">
+                    <span className="text-slate-400 text-[11px]">রেজিস্ট্রেশন নম্বর:</span>
+                    <span className="text-cyan-400 font-bold text-xs tracking-wide">
+                      {computedRegNumber}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Smart Card Option: ONLY SHOW WHEN REGISTERED */}
+              {/* Kono BRTA circle select na thakle (ON TEST thakle) Smart Card er option show hbe na */}
+              {isRegistered ? (
+                <div id="smart-card-section" className={`pt-2 space-y-2 border-t rounded-xl transition-all ${
+                  smartCardError ? 'border-rose-500/80 p-2 bg-rose-500/5' : 'border-slate-800/80'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Smart Card (স্মার্ট কার্ড) <span className="text-rose-400 font-bold">*</span>:</span>
+                    </span>
+                    
+                    {/* Smart Card Status Buttons - Unselected by default */}
+                    <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
+                      {(['Yes', 'No', 'Pending'] as const).map((status) => (
                         <button
-                          key={fp}
+                          key={status}
                           type="button"
                           onClick={() => {
-                            setFingerprintDone(fp);
+                            setSmartCardStatus(status);
                             setSmartCardError(false);
+                            if (status !== 'No') {
+                              setFingerprintDone(null);
+                            }
                           }}
-                          className={`px-3.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                            fingerprintDone === fp
-                              ? fp === 'Yes'
-                                ? 'bg-emerald-500 text-slate-950 font-bold shadow-sm'
-                                : 'bg-rose-500 text-white font-bold shadow-sm'
-                              : 'text-slate-400 hover:text-white'
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                            smartCardStatus === status
+                              ? status === 'Yes' 
+                                ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
+                                : status === 'Pending'
+                                ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
+                                : 'bg-rose-500 text-white shadow-md font-bold'
+                              : 'text-slate-400 hover:text-white bg-transparent'
                           }`}
                         >
-                          {fp}
+                          {status}
                         </button>
                       ))}
                     </div>
                   </div>
-                )}
 
-                {smartCardError && smartCardStatus === 'No' && !fingerprintDone && (
-                  <p className="text-rose-400 text-[11px] font-medium flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>ফিঙ্গারপ্রিন্ট দেওয়া হয়েছে কিনা তা নির্বাচন করুন (Yes / No)।</span>
-                  </p>
-                )}
-              </div>
+                  {/* Validation message if user missed selecting Smart Card */}
+                  {smartCardError && !smartCardStatus && (
+                    <p className="text-rose-400 text-[11px] font-medium flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>স্মার্ট কার্ড অপশনটি অবশ্যই নির্বাচন করতে হবে (Yes, No বা Pending)।</span>
+                    </p>
+                  )}
+
+                  {/* If Smart Card is "No", dynamically show Fingerprint option (MUST SELECT) */}
+                  {smartCardStatus === 'No' && (
+                    <div className="p-2.5 bg-slate-950/90 border border-amber-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-all">
+                      <span className="text-amber-400 font-medium flex items-center gap-1.5">
+                        <Fingerprint className="w-4 h-4 text-amber-400" />
+                        <span>Fingerprint (ফিঙ্গারপ্রিন্ট দেওয়া হয়েছে?) <span className="text-rose-400 font-bold">*</span>:</span>
+                      </span>
+                      <div className="flex items-center gap-1.5 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+                        {(['Yes', 'No'] as const).map((fp) => (
+                          <button
+                            key={fp}
+                            type="button"
+                            onClick={() => {
+                              setFingerprintDone(fp);
+                              setSmartCardError(false);
+                            }}
+                            className={`px-3.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                              fingerprintDone === fp
+                                ? fp === 'Yes'
+                                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-sm'
+                                  : 'bg-rose-500 text-white font-bold shadow-sm'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {fp}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {smartCardError && smartCardStatus === 'No' && !fingerprintDone && (
+                    <p className="text-rose-400 text-[11px] font-medium flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>ফিঙ্গারপ্রিন্ট দেওয়া হয়েছে কিনা তা নির্বাচন করুন (Yes / No)।</span>
+                    </p>
+                  )}
+                </div>
+              ) : null}
 
               {/* Submit Documents (PDF / Image Upload) */}
               <div className="pt-2 space-y-2 border-t border-slate-800/80">
@@ -1186,74 +1405,188 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
             </div>
           </div>
 
-          {/* Section 5: Photos & Remarks */}
+          {/* Section 5: Bike Photos */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4 shadow-sm">
             <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
               <Camera className="w-4 h-4 text-cyan-400" />
               <h3 className="text-sm font-bold text-white font-display">
-                5. Photos & Remarks (বাইকের ছবি ও নোট)
+                5. Bike Photos (বাইকের আসল ছবি)
               </h3>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-xs text-slate-400 block font-medium">
-                Choose a sample photo or enter a direct image URL (বাইকের ফটো নির্বাচন করুন):
-              </label>
-
-              {/* Sample Preset Selection */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {SAMPLE_PRESET_IMAGES.map((sample, idx) => {
-                  const isSelected = (imageUrl === sample.url && !customUrlInput);
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setImageUrl(sample.url);
-                        setCustomUrlInput('');
-                      }}
-                      className={`group relative rounded-xl overflow-hidden border text-left p-1 transition-all cursor-pointer ${
-                        isSelected 
-                          ? 'border-cyan-400 ring-2 ring-cyan-500/40' 
-                          : 'border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      <img 
-                        src={sample.url} 
-                        alt={sample.name} 
-                        className="w-full h-16 object-cover rounded-lg"
-                      />
-                      <span className="text-[10px] text-slate-300 font-medium block truncate mt-1 px-1">
-                        {sample.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Custom Image URL Input */}
-              <div className="text-xs pt-1">
-                <label className="text-slate-400 block mb-1 font-medium">Or Custom Image URL (সরাসরি ছবির লিঙ্ক):</label>
+            <div className="space-y-4">
+              {/* Primary Real Photo Upload Controls */}
+              <div>
                 <input
-                  type="url"
-                  value={customUrlInput}
-                  onChange={(e) => setCustomUrlInput(e.target.value)}
-                  placeholder="https://example.com/bike-photo.jpg"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
+                  type="file"
+                  id="bike-photos-multi-upload"
+                  accept="image/*"
+                  multiple
+                  onChange={handleBikePhotoUpload}
+                  className="hidden"
                 />
+                <label
+                  htmlFor="bike-photos-multi-upload"
+                  className="flex items-center justify-between p-4 border-2 border-dashed border-cyan-500/40 hover:border-cyan-400 rounded-xl bg-slate-950/80 hover:bg-slate-950 cursor-pointer transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 group-hover:scale-105 transition-all">
+                      <UploadCloud className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <span className="font-bold text-white text-xs block group-hover:text-cyan-300 transition-colors">
+                        গ্যালারি / ফাইল থেকে ছবি নির্বাচন করুন (Select Photos from Gallery)
+                      </span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5">
+                        একসাথে একাধিক আসল ছবি সিলেক্ট করতে পারেন
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-4 py-2 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-cyan-500/20 group-hover:bg-cyan-400 transition-all shrink-0">
+                    Browse Files
+                  </span>
+                </label>
               </div>
 
-              {/* Inspection / Notes */}
-              <div className="text-xs pt-1">
-                <label className="text-slate-400 block mb-1 font-medium">Remarks / Inspection Notes (বাইকের অবস্থা বা মন্তব্য):</label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="যেমন: ইঞ্জিন সাউন্ড মসৃণ, ফ্রেশ কন্ডিশন, অল পেপারস আপডেট..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
-                />
+              {/* Add Photo by Web URL (Optional) */}
+              <div className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1.5">
+                <label className="text-xs text-slate-400 block font-medium">
+                  বা ছবির ওয়েব লিঙ্ক যুক্ত করুন (Add Photo via Web URL):
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={customUrlInput}
+                    onChange={(e) => setCustomUrlInput(e.target.value)}
+                    placeholder="https://example.com/bike-photo.jpg"
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono text-xs placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddPhotoByUrl();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddPhotoByUrl}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 hover:border-cyan-500/40 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Photo</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Uploaded Photos Management Grid */}
+              {uploadedPhotos.length > 0 ? (
+                <div className="p-4 bg-slate-950 border border-cyan-500/30 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white font-display">
+                        আপলোডকৃত আসল ছবিসমূহ
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono text-[11px] font-bold">
+                        {uploadedPhotos.length}টি ছবি
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <label
+                        htmlFor="bike-photos-multi-upload"
+                        className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-cyan-500/30 rounded-lg text-[11px] font-semibold cursor-pointer transition-all flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> আরও ছবি যোগ করুন
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleClearAllPhotos}
+                        className="px-2.5 py-1 bg-slate-900 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-800/40 rounded-lg text-[11px] font-medium transition-all"
+                      >
+                        সব মুছুন
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {uploadedPhotos.map((photoUrl, idx) => {
+                      const isCover = idx === 0;
+                      return (
+                        <div
+                          key={idx}
+                          className={`group relative rounded-xl overflow-hidden border bg-slate-900 transition-all ${
+                            isCover 
+                              ? 'border-cyan-400 ring-2 ring-cyan-500/40 shadow-lg shadow-cyan-500/10' 
+                              : 'border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          {/* Image */}
+                          <div className="aspect-[4/3] w-full overflow-hidden bg-slate-950 relative">
+                            <img
+                              src={photoUrl}
+                              alt={`Bike photo ${idx + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            
+                            {/* Cover Badge */}
+                            {isCover ? (
+                              <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-cyan-500 text-slate-950 font-bold text-[10px] flex items-center gap-1 shadow-md">
+                                <Star className="w-3 h-3 fill-slate-950" />
+                                <span>মূল কভার ছবি</span>
+                              </div>
+                            ) : (
+                              <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-slate-950/80 text-slate-300 font-mono text-[9px] border border-slate-800">
+                                #{idx + 1}
+                              </span>
+                            )}
+
+                            {/* Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePhoto(idx)}
+                              title="ছবি মুছে ফেলুন"
+                              className="absolute top-1.5 right-1.5 p-1 rounded-md bg-slate-950/80 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors border border-slate-800"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Footer Action */}
+                          <div className="p-1.5 bg-slate-950 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                            {isCover ? (
+                              <span className="text-[10px] text-cyan-400 font-medium px-1">
+                                Primary View
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSetCoverPhoto(idx)}
+                                className="w-full text-center text-[10px] text-slate-400 hover:text-cyan-300 py-0.5 font-medium transition-colors hover:underline"
+                              >
+                                মূল ছবি বানান (Set as Cover)
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 border border-slate-800/80 bg-slate-950/50 rounded-2xl flex flex-col items-center justify-center text-center space-y-2">
+                  <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 text-slate-500">
+                    <ImageIcon className="w-8 h-8 stroke-[1.5]" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-300 block">
+                      এখনো কোনো আসল ছবি যুক্ত করা হয়নি
+                    </span>
+                    <span className="text-[11px] text-slate-500 block max-w-sm mt-0.5">
+                      ওপরের বাটন দিয়ে শোরুমের বাইকের আসল ছবি আপলোড করুন (সামনে, পেছনের চাকা, মিটার কনসোল, সাইড প্রোফাইল)।
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

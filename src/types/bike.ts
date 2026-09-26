@@ -9,6 +9,7 @@ export interface BikeSpecs {
   frontBrake: string;
   rearBrake: string;
   absType: string;
+  brakingSystem?: 'Dual Channel ABS' | 'Single Channel ABS' | 'Dual Disc' | 'Disc + Drum' | 'CBS' | 'Drum Brakes' | string;
   fuelSupply?: 'FI' | 'Carburetor' | 'Electric';
   tyreConditionPct: number;
   batteryHealthPct: number;
@@ -67,6 +68,7 @@ export interface Bike {
   conditionLabel: string;
   fuelType: 'Petrol' | 'Electric' | 'Hybrid';
   fuelSupply?: 'FI' | 'Carburetor' | 'Electric';
+  brakingSystem?: 'Dual Channel ABS' | 'Single Channel ABS' | 'Dual Disc' | 'Disc + Drum' | 'CBS' | 'Drum Brakes' | string;
   transmission: 'Manual' | 'Automatic' | 'Quickshifter';
   color: string;
   colorHex: string;
@@ -195,6 +197,8 @@ export interface ShowroomSettings {
   tradeLicense: string;
   currencySymbol: string;
   managerName: string;
+  managerContact?: string;
+  managerPhotoUrl?: string;
   openingHours: string;
   logoUrl?: string;
 }

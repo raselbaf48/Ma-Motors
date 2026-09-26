@@ -95,9 +95,9 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
             className="flex items-center gap-2.5 pl-2 sm:pl-3.5 border-l border-slate-800/80 cursor-pointer group shrink-0"
             title={`${showroomName} - Showroom Logo`}
           >
-            {logoUrl && !logoError ? (
+            {Boolean(logoUrl && logoUrl.trim()) && !logoError ? (
               <img 
-                src={logoUrl} 
+                src={logoUrl!} 
                 alt={showroomName} 
                 onError={() => setLogoError(true)} 
                 className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover border-2 border-cyan-500/50 shadow-md shadow-cyan-500/20 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 

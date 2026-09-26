@@ -76,8 +76,12 @@ export const BikeCard: React.FC<BikeCardProps> = ({
                 MFG {bike.mfgYear || bike.year} · Reg {bike.regYear || bike.year}
               </span>
               <span>·</span>
-              <span className="text-slate-300 font-medium bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/60">
-                {bike.regNumber || 'Reg: Pending'}
+              <span className={`px-1.5 py-0.5 rounded border text-[11px] font-mono ${
+                bike.regNumber === 'ON TEST'
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                  : 'text-slate-300 font-medium bg-slate-800/80 border-slate-700/60'
+              }`}>
+                {bike.regNumber || 'ON TEST'}
               </span>
               <span>·</span>
               <span className="flex items-center gap-1">
@@ -86,6 +90,18 @@ export const BikeCard: React.FC<BikeCardProps> = ({
               </span>
               <span>·</span>
               <span>{bike.cc} cc</span>
+              {bike.fuelSupply && (
+                <>
+                  <span>·</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    bike.fuelSupply === 'Carburetor' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' :
+                    bike.fuelSupply === 'Electric' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' :
+                    'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                  }`}>
+                    {bike.fuelSupply === 'Carburetor' ? 'Carb' : bike.fuelSupply}
+                  </span>
+                </>
+              )}
               {bike.documentPdfName && (
                 <>
                   <span>·</span>
@@ -182,7 +198,18 @@ export const BikeCard: React.FC<BikeCardProps> = ({
           <div className="flex items-center justify-between text-xs text-slate-400 font-mono mb-1">
             <span>{bike.brand}</span>
             <span aria-hidden="true">·</span>
-            <span>{bike.cc} cc</span>
+            <span className="flex items-center gap-1">
+              <span>{bike.cc} cc</span>
+              {bike.fuelSupply && (
+                <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${
+                  bike.fuelSupply === 'Carburetor' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' :
+                  bike.fuelSupply === 'Electric' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' :
+                  'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                }`}>
+                  {bike.fuelSupply === 'Carburetor' ? 'Carb' : bike.fuelSupply}
+                </span>
+              )}
+            </span>
             <span aria-hidden="true">·</span>
             <span>MFG {bike.mfgYear || bike.year}</span>
           </div>
@@ -197,10 +224,14 @@ export const BikeCard: React.FC<BikeCardProps> = ({
           </h3>
 
           <div className="mt-1 flex items-center justify-between text-[11px] font-mono text-slate-400">
-            <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 border border-slate-700/60">
-              {bike.regNumber || 'BRTA Reg'}
+            <span className={`px-1.5 py-0.5 rounded border ${
+              bike.regNumber === 'ON TEST'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                : 'bg-slate-800 text-slate-300 border-slate-700/60'
+            }`}>
+              {bike.regNumber || 'ON TEST'}
             </span>
-            <span className="text-slate-400">Reg: {bike.regYear || bike.year}</span>
+            <span className="text-slate-400">{bike.regNumber === 'ON TEST' ? 'On Test' : `Reg: ${bike.regYear || bike.year}`}</span>
           </div>
 
           {/* Key Metric Highlights */}

@@ -135,9 +135,9 @@ export const AdditionalCostPage: React.FC<AdditionalCostPageProps> = ({
               onClick={onBack}
               title={`${showroomName} - Showroom Logo`}
             >
-              {logoUrl && !logoError ? (
+              {Boolean(logoUrl && logoUrl.trim()) && !logoError ? (
                 <img 
-                  src={logoUrl} 
+                  src={logoUrl!} 
                   alt={showroomName} 
                   onError={() => setLogoError(true)} 
                   className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl object-cover border-2 border-cyan-500/50 shadow-md shadow-cyan-500/20 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 

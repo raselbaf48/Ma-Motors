@@ -5,9 +5,12 @@ import {
   Save, 
   CheckCircle2, 
   Download, 
-  RotateCcw,
   Image as ImageIcon,
-  ExternalLink
+  ExternalLink,
+  UploadCloud,
+  Trash2,
+  User,
+  RotateCcw
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -31,6 +34,63 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [logoPreviewError, setLogoPreviewError] = useState(false);
+  const [managerPhotoPreviewError, setManagerPhotoPreviewError] = useState(false);
+
+  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        const dataUrl = event.target.result as string;
+        setLogoPreviewError(false);
+        const updated = { ...formData, logoUrl: dataUrl };
+        setFormData(updated);
+        onUpdateSettings(updated);
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 2500);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoPreviewError(false);
+    const updated = { ...formData, logoUrl: '' };
+    setFormData(updated);
+    onUpdateSettings(updated);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 2500);
+  };
+
+  const handleManagerPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        const dataUrl = event.target.result as string;
+        setManagerPhotoPreviewError(false);
+        const updated = { ...formData, managerPhotoUrl: dataUrl };
+        setFormData(updated);
+        onUpdateSettings(updated);
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 2500);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveManagerPhoto = () => {
+    setManagerPhotoPreviewError(false);
+    const updated = { ...formData, managerPhotoUrl: '' };
+    setFormData(updated);
+    onUpdateSettings(updated);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 2500);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,46 +164,87 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Showroom Logo Section */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3.5">
-          <div className="flex items-center gap-2 text-white font-bold text-sm">
-            <ImageIcon className="w-4 h-4 text-cyan-400" />
-            <span>Showroom Logo (Google Photos / Web Link)</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-white font-bold text-sm">
+              <ImageIcon className="w-4 h-4 text-cyan-400" />
+              <span>Showroom Logo (শোরুমের লোগো)</span>
+            </div>
+            {Boolean(formData.logoUrl && formData.logoUrl.trim()) && (
+              <button
+                type="button"
+                onClick={handleRemoveLogo}
+                className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>লোগো মুছে ফেলুন</span>
+              </button>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 items-start">
             {/* Logo Preview */}
-            <div className="w-20 h-20 rounded-2xl bg-slate-950 border-2 border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-              {formData.logoUrl && !logoPreviewError ? (
-                <img
-                  src={formData.logoUrl}
-                  alt="Showroom Logo Preview"
-                  onError={() => setLogoPreviewError(true)}
-                  className="w-full h-full object-cover"
-                />
+            <div className="w-24 h-24 rounded-2xl bg-slate-950 border-2 border-cyan-500/40 flex items-center justify-center overflow-hidden shrink-0 shadow-lg relative group">
+              {Boolean(formData.logoUrl && formData.logoUrl.trim()) && !logoPreviewError ? (
+                <>
+                  <img
+                    src={formData.logoUrl!}
+                    alt="Showroom Logo Preview"
+                    onError={() => setLogoPreviewError(true)}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="text-[10px] text-white font-mono bg-slate-950/80 px-2 py-0.5 rounded">Active</span>
+                  </div>
+                </>
               ) : (
                 <div className="text-center p-2">
-                  <div className="text-slate-600 font-bold text-xl">M</div>
-                  <div className="text-[9px] text-slate-500 mt-0.5">No Logo</div>
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-xl shadow-md mx-auto">
+                    M
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1">Default Logo</div>
                 </div>
               )}
             </div>
 
-            {/* Input field */}
-            <div className="flex-1 space-y-2 text-xs w-full">
-              <label className="text-slate-300 block font-medium">
-                Logo Image Link / Google Photos URL
-              </label>
-              <input
-                type="url"
-                value={formData.logoUrl || ''}
-                onChange={(e) => {
-                  setLogoPreviewError(false);
-                  setFormData({ ...formData, logoUrl: e.target.value });
-                }}
-                placeholder="https://lh3.googleusercontent.com/... or Google Photos share link"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono text-xs focus:outline-none focus:border-cyan-500"
-              />
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Paste your Google Photos link or any public image URL. This logo will be displayed on the Sidebar, Header, and Sales Invoices.
+            {/* Upload Controls & URL input */}
+            <div className="flex-1 space-y-3 text-xs w-full">
+              {/* Direct Gallery / Device Upload Button */}
+              <div className="flex flex-wrap gap-2.5">
+                <input
+                  type="file"
+                  id="settings-logo-file"
+                  accept="image/*"
+                  onChange={handleLogoFileUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="settings-logo-file"
+                  className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer shrink-0"
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  <span>গ্যালারি থেকে লোগো সিলেক্ট করুন (Choose from Gallery)</span>
+                </label>
+              </div>
+
+              {/* Or Web Link URL */}
+              <div className="space-y-1 pt-1">
+                <label className="text-slate-400 block font-medium">
+                  অথবা ছবির ওয়েব লিঙ্ক / Google Photos URL পেস্ট করুন:
+                </label>
+                <input
+                  type="url"
+                  value={formData.logoUrl || ''}
+                  onChange={(e) => {
+                    setLogoPreviewError(false);
+                    setFormData({ ...formData, logoUrl: e.target.value });
+                  }}
+                  placeholder="https://lh3.googleusercontent.com/... or image link"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-cyan-500 transition-colors"
+                />
+              </div>
+
+              <p className="text-[11px] text-slate-400 leading-relaxed pt-1">
+                ✓ নির্বাচিত লোগোটি সাইডবার, হেডার (উপরের বার), এবং সেলস মেমো/চালানে তাৎক্ষণিকভাবে সংরক্ষিত হয়ে প্রদর্শিত হবে।
               </p>
             </div>
           </div>
@@ -153,7 +254,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3.5">
           <div className="flex items-center gap-2 text-white font-bold text-sm">
             <Building2 className="w-4 h-4 text-cyan-400" />
-            <span>Showroom Profile</span>
+            <span>Showroom Profile (শোরুমের বিবরণ)</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -181,7 +282,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div>
-              <label className="text-slate-400 block mb-1">Hotline *</label>
+              <label className="text-slate-400 block mb-1">Showroom Contact No (Hotline) *</label>
               <input
                 type="text"
                 required
@@ -192,7 +293,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <div>
-              <label className="text-slate-400 block mb-1">WhatsApp</label>
+              <label className="text-slate-400 block mb-1">WhatsApp *</label>
               <input
                 type="text"
                 required
@@ -213,18 +314,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          <div className="text-xs">
-            <label className="text-slate-400 block mb-1">Showroom Address *</label>
-            <input
-              type="text"
-              required
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-            />
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <label className="text-slate-400 block mb-1">Showroom Address *</label>
+              <input
+                type="text"
+                required
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+
             <div>
               <label className="text-slate-400 block mb-1">Business Hours</label>
               <input
@@ -234,15 +335,114 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
+          </div>
+        </div>
 
-            <div>
-              <label className="text-slate-400 block mb-1">Manager / Contact Person</label>
-              <input
-                type="text"
-                value={formData.managerName}
-                onChange={(e) => setFormData({ ...formData, managerName: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-              />
+        {/* Section 2: Manager Profile & Photo */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-white font-bold text-sm">
+              <User className="w-4 h-4 text-cyan-400" />
+              <span>Manager Profile (ম্যানেজারের তথ্য ও ছবি)</span>
+            </div>
+            {Boolean(formData.managerPhotoUrl && formData.managerPhotoUrl.trim()) && (
+              <button
+                type="button"
+                onClick={handleRemoveManagerPhoto}
+                className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>ছবি মুছে ফেলুন</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+            {/* Manager Photo Preview */}
+            <div className="w-24 h-24 rounded-2xl bg-slate-950 border-2 border-cyan-500/40 flex items-center justify-center overflow-hidden shrink-0 shadow-lg relative group">
+              {Boolean(formData.managerPhotoUrl && formData.managerPhotoUrl.trim()) && !managerPhotoPreviewError ? (
+                <>
+                  <img
+                    src={formData.managerPhotoUrl!}
+                    alt="Manager Photo"
+                    onError={() => setManagerPhotoPreviewError(true)}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="text-[10px] text-white font-mono bg-slate-950/80 px-2 py-0.5 rounded">Active</span>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center p-2">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 font-black shadow-md mx-auto">
+                    <User className="w-6 h-6 text-slate-950" />
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1">No Photo</div>
+                </div>
+              )}
+            </div>
+
+            {/* Manager Photo Upload & Name/Contact Fields */}
+            <div className="flex-1 space-y-3 text-xs w-full">
+              <div className="flex flex-wrap gap-2.5">
+                <input
+                  type="file"
+                  id="settings-manager-photo-file"
+                  accept="image/*"
+                  onChange={handleManagerPhotoUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="settings-manager-photo-file"
+                  className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer shrink-0"
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  <span>গ্যালারি থেকে ম্যানেজারের ছবি আপলোড করুন</span>
+                </label>
+              </div>
+
+              {/* Optional Photo URL */}
+              <div className="space-y-1">
+                <label className="text-slate-400 block font-medium">
+                  অথবা ম্যানেজারের ছবির ওয়েব লিঙ্ক পেস্ট করুন:
+                </label>
+                <input
+                  type="url"
+                  value={formData.managerPhotoUrl || ''}
+                  onChange={(e) => {
+                    setManagerPhotoPreviewError(false);
+                    setFormData({ ...formData, managerPhotoUrl: e.target.value });
+                  }}
+                  placeholder="https://example.com/manager-photo.jpg"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-cyan-500 transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="text-slate-400 block mb-1">ম্যানেজারের নাম (Manager Name) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.managerName}
+                    onChange={(e) => setFormData({ ...formData, managerName: e.target.value })}
+                    placeholder="Saddam Hossain"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-semibold focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-400 block mb-1">ম্যানেজারের মোবাইল নম্বর (Manager Contact) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.managerContact || ''}
+                    onChange={(e) => setFormData({ ...formData, managerContact: e.target.value })}
+                    placeholder="+880 1739-840603"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
