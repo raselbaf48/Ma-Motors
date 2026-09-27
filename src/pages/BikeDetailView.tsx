@@ -40,6 +40,7 @@ interface BikeDetailViewProps {
   onRecordSale: (sale: SaleRecord) => void;
   onNavigateToSales: () => void;
   onNavigateToCost?: () => void;
+  onDeleteBike?: (bikeId: string) => void;
   showroomName?: string;
   logoUrl?: string;
 }
@@ -51,6 +52,7 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
   onRecordSale,
   onNavigateToSales,
   onNavigateToCost,
+  onDeleteBike,
   showroomName = 'Ma Motors',
   logoUrl
 }) => {
@@ -101,6 +103,8 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
   const [editBrakingSystem, setEditBrakingSystem] = useState<string>(
     bike.brakingSystem || bike.specs?.brakingSystem || 'Single Channel ABS'
   );
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
   const totalPrepCost = bike.additionalCosts?.reduce((sum, c) => sum + c.amount, 0) || bike.totalAdditionalCost || 0;
@@ -195,6 +199,7 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
     setEditBrakingSystem(bike.brakingSystem || bike.specs?.brakingSystem || 'Single Channel ABS');
     setEditImages([...(bike.images || [])]);
     setNewImageUrl('');
+    setShowDeleteConfirm(false);
     setIsEditModalOpen(true);
   };
 
@@ -294,7 +299,7 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
             {isAdmin && (
               <button
                 onClick={handleOpenEdit}
-                className="px-3 sm:px-4 py-2 bg-gradient-to-r from-amber-500/20 to-amber-600/10 hover:from-amber-500/30 hover:to-amber-600/20 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+                className="px-3 sm:px-4 py-2 bg-gradient-to-r from-amber-500/20 to-amber-600/10 hover:from-amber-500/30 hover:to-amber-600/20 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
               >
                 <Edit3 className="w-3.5 h-3.5 text-amber-400" />
                 <span className="hidden sm:inline">Edit Details & Photos</span>
@@ -1145,20 +1150,74 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="px-3.5 py-2 rounded-lg text-slate-400 hover:text-white text-xs hover:bg-slate-850"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors"
-                >
-                  Save Changes
-                </button>
+              {/* Footer Actions: Delete (Left) and Cancel/Save (Right) */}
+              <div className="pt-3 border-t border-slate-800 space-y-2">
+                {showDeleteConfirm ? (
+                  <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+                    <div className="flex items-center gap-2 text-rose-200 text-xs">
+                      <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
+                      <span>আপনি কি নিশ্চিত যে এই বাইকটি স্টক থেকে <strong>স্থায়ীভাবে ডিলিট (Delete)</strong> করতে চান?</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 text-xs cursor-pointer transition-colors"
+                      >
+                        বাতিল
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onDeleteBike) {
+                            onDeleteBike(bike.id);
+                            setIsEditModalOpen(false);
+                            setShowDeleteConfirm(false);
+                            onBack();
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-900/40 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>হ্যাঁ, ডিলিট করুন</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    {onDeleteBike ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:border-rose-500/50 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Delete Bike (রিমুভ করুন)</span>
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditModalOpen(false);
+                          setShowDeleteConfirm(false);
+                        }}
+                        className="px-3.5 py-2 rounded-lg text-slate-400 hover:text-white text-xs hover:bg-slate-800 cursor-pointer transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-cyan-500/25 transition-all active:scale-95 cursor-pointer"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </form>
           </div>

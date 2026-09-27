@@ -533,6 +533,57 @@ export default function App() {
     }
   };
 
+  const handlePushToCloud = async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      if (bikes.length > 0) {
+        const serialized = bikes.map(serializeBikeToSupabase);
+        await supabase.from('bikes').upsert(serialized, { onConflict: 'id' });
+      }
+      if (purchases.length > 0) {
+        const pSerialized = purchases.map(serializePurchaseToSupabase);
+        await supabase.from('purchases').upsert(pSerialized, { onConflict: 'id' });
+      }
+      if (sales.length > 0) {
+        const sSerialized = sales.map(serializeSaleToSupabase);
+        await supabase.from('sales').upsert(sSerialized, { onConflict: 'id' });
+      }
+      await supabase.from('settings').upsert(serializeSettingsToSupabase(settings), { onConflict: 'id' });
+      return { success: true, message: `Realtime Duty Matrix synced to Cloud!` };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Push to Cloud failed' };
+    }
+  };
+
+  const handlePullFromCloud = async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      const [bRes, pRes, sRes, setRes] = await Promise.all([
+        supabase.from('bikes').select('*').order('created_at', { ascending: false }),
+        supabase.from('purchases').select('*').order('created_at', { ascending: false }),
+        supabase.from('sales').select('*').order('created_at', { ascending: false }),
+        supabase.from('settings').select('*').eq('id', 'main_settings').maybeSingle()
+      ]);
+
+      if (bRes.data && bRes.data.length > 0) {
+        const parsedBikes = bRes.data.map(deserializeBikeFromSupabase);
+        setBikes(parsedBikes);
+        setSelectedBike(parsedBikes[0]);
+      }
+      if (pRes.data && pRes.data.length > 0) {
+        setPurchases(pRes.data.map(deserializePurchaseFromSupabase));
+      }
+      if (sRes.data && sRes.data.length > 0) {
+        setSales(sRes.data.map(deserializeSaleFromSupabase));
+      }
+      if (setRes.data) {
+        setSettings(deserializeSettingsFromSupabase(setRes.data));
+      }
+
+      return { success: true, message: 'Data synced from Supabase successfully.' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Pull from Cloud failed' };
+    }
+  };
+
   const handleResetDemoData = () => {
     try {
       localStorage.removeItem(STORAGE_KEYS.BIKES);
@@ -618,6 +669,10 @@ export default function App() {
         <BikeDetailView
           bike={selectedBike}
           onBack={() => setCurrentPage('stock')}
+          onDeleteBike={(bikeId) => {
+            handleDeleteBike(bikeId);
+            setCurrentPage('stock');
+          }}
           onUpdateBike={(updatedBike) => {
             handleUpdateBike(updatedBike);
             setSelectedBike(updatedBike);
@@ -795,9 +850,12 @@ export default function App() {
                   settings={settings}
                   onUpdateSettings={handleUpdateSettings}
                   onResetDemoData={handleResetDemoData}
+                  onPushToCloud={handlePushToCloud}
+                  onPullFromCloud={handlePullFromCloud}
                   bikesCount={bikes.length}
                   purchasesCount={purchases.length}
                   salesCount={sales.length}
+                  onClose={() => setCurrentPage('stock')}
                 />
               ) : (
                 <AdminRestrictedNotice
