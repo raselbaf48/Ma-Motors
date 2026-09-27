@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import { ShowroomSettings } from '../types/bike';
+import { MASTER_ADMIN_EMAIL, getAdminEmails } from '../utils/firebase';
 import { 
   Building2, 
   Save, 
   CheckCircle2, 
   Download, 
   Image as ImageIcon,
-  ExternalLink,
   UploadCloud,
   Trash2,
   User,
-  RotateCcw
+  Loader2,
+  ChevronDown,
+  Camera,
+  Crown,
+  Shield,
+  Plus,
+  Mail
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -31,11 +37,55 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   salesCount
 }) => {
   const [formData, setFormData] = useState<ShowroomSettings>(settings);
+  const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [logoPreviewError, setLogoPreviewError] = useState(false);
   const [managerPhotoPreviewError, setManagerPhotoPreviewError] = useState(false);
+  const [logoMenuOpen, setLogoMenuOpen] = useState(false);
+  const [managerMenuOpen, setManagerMenuOpen] = useState(false);
 
+  // Admin Gmail Access Management State
+  const [adminEmails, setAdminEmails] = useState<string[]>(() => getAdminEmails());
+  const [newAdminEmailInput, setNewAdminEmailInput] = useState('');
+  const [adminEmailError, setAdminEmailError] = useState('');
+
+  const handleAddAdminEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminEmailError('');
+    const email = newAdminEmailInput.trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      setAdminEmailError('সঠিক Gmail এড্রেস লিখুন');
+      return;
+    }
+    if (adminEmails.includes(email)) {
+      setAdminEmailError('এই Gmail ইতিমধ্যে অ্যাডমিন তালিকায় রয়েছে');
+      return;
+    }
+    const updated = [...adminEmails, email];
+    setAdminEmails(updated);
+    try {
+      localStorage.setItem('mamotors_admin_emails', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    setNewAdminEmailInput('');
+  };
+
+  const handleRemoveAdminEmail = (emailToRemove: string) => {
+    if (emailToRemove.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase()) {
+      return; // Primary Master Admin cannot be removed
+    }
+    const updated = adminEmails.filter((e) => e.toLowerCase() !== emailToRemove.toLowerCase());
+    setAdminEmails(updated);
+    try {
+      localStorage.setItem('mamotors_admin_emails', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  };
+
+  // Direct Gallery Upload for Logo
   const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -44,11 +94,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (event.target?.result) {
         const dataUrl = event.target.result as string;
         setLogoPreviewError(false);
-        const updated = { ...formData, logoUrl: dataUrl };
-        setFormData(updated);
-        onUpdateSettings(updated);
-        setSavedSuccess(true);
-        setTimeout(() => setSavedSuccess(false), 2500);
+        setFormData((prev) => ({ ...prev, logoUrl: dataUrl }));
+        setHasUnsavedChanges(true);
       }
     };
     reader.readAsDataURL(file);
@@ -56,14 +103,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleRemoveLogo = () => {
+    setFormData((prev) => ({ ...prev, logoUrl: '' }));
     setLogoPreviewError(false);
-    const updated = { ...formData, logoUrl: '' };
-    setFormData(updated);
-    onUpdateSettings(updated);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+    setHasUnsavedChanges(true);
   };
 
+  // Direct Gallery Upload for Manager Photo
   const handleManagerPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -72,11 +117,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (event.target?.result) {
         const dataUrl = event.target.result as string;
         setManagerPhotoPreviewError(false);
-        const updated = { ...formData, managerPhotoUrl: dataUrl };
-        setFormData(updated);
-        onUpdateSettings(updated);
-        setSavedSuccess(true);
-        setTimeout(() => setSavedSuccess(false), 2500);
+        setFormData((prev) => ({ ...prev, managerPhotoUrl: dataUrl }));
+        setHasUnsavedChanges(true);
       }
     };
     reader.readAsDataURL(file);
@@ -84,19 +126,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleRemoveManagerPhoto = () => {
+    setFormData((prev) => ({ ...prev, managerPhotoUrl: '' }));
     setManagerPhotoPreviewError(false);
-    const updated = { ...formData, managerPhotoUrl: '' };
-    setFormData(updated);
-    onUpdateSettings(updated);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+    setHasUnsavedChanges(true);
+  };
+
+  const updateField = (field: keyof ShowroomSettings, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setHasUnsavedChanges(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateSettings(formData);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2000);
+    setIsSaving(true);
+
+    setTimeout(() => {
+      onUpdateSettings(formData);
+      setIsSaving(false);
+      setSavedSuccess(true);
+      setHasUnsavedChanges(false);
+      setTimeout(() => setSavedSuccess(false), 2500);
+    }, 450);
   };
 
   const handleExportData = () => {
@@ -118,22 +168,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     downloadAnchor.remove();
   };
 
-  const handleReset = () => {
-    onResetDemoData();
-    setResetSuccess(true);
-    setTimeout(() => setResetSuccess(false), 2000);
-  };
-
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-5 max-w-4xl mx-auto">
-      {/* Header */}
+    <div className="p-4 sm:p-6 lg:p-8 space-y-4 max-w-4xl mx-auto">
+      {/* Clean Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
             Settings
           </h1>
           <p className="text-slate-400 text-xs mt-0.5">
-            Showroom profile, Google Photos logo, and contact info
+            শোরুমের তথ্য ও প্রোফাইল সেটিংস
           </p>
         </div>
 
@@ -142,7 +186,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center"
         >
           <Download className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Export Data (JSON)</span>
+          <span>Export Data</span>
         </button>
       </div>
 
@@ -153,317 +197,290 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {resetSuccess && (
-        <div className="p-3 bg-cyan-950/80 border border-cyan-500/40 rounded-xl text-cyan-300 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
-          <span>Data reset to initial state.</span>
-        </div>
-      )}
-
       {/* Main Settings Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Showroom Logo Section */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3.5">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-white font-bold text-sm">
               <ImageIcon className="w-4 h-4 text-cyan-400" />
-              <span>Showroom Logo (শোরুমের লোগো)</span>
+              <span>Showroom Logo</span>
             </div>
-            {Boolean(formData.logoUrl && formData.logoUrl.trim()) && (
-              <button
-                type="button"
-                onClick={handleRemoveLogo}
-                className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>লোগো মুছে ফেলুন</span>
-              </button>
-            )}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 items-start">
+          <div className="flex items-center gap-4">
             {/* Logo Preview */}
-            <div className="w-24 h-24 rounded-2xl bg-slate-950 border-2 border-cyan-500/40 flex items-center justify-center overflow-hidden shrink-0 shadow-lg relative group">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-950 border-2 border-cyan-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
               {Boolean(formData.logoUrl && formData.logoUrl.trim()) && !logoPreviewError ? (
-                <>
-                  <img
-                    src={formData.logoUrl!}
-                    alt="Showroom Logo Preview"
-                    onError={() => setLogoPreviewError(true)}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-[10px] text-white font-mono bg-slate-950/80 px-2 py-0.5 rounded">Active</span>
-                  </div>
-                </>
+                <img
+                  src={formData.logoUrl!}
+                  alt="Showroom Logo"
+                  onError={() => setLogoPreviewError(true)}
+                  className="w-full h-full object-cover"
+                />
               ) : (
-                <div className="text-center p-2">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-xl shadow-md mx-auto">
-                    M
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-1">Default Logo</div>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-md">
+                  M
                 </div>
               )}
             </div>
 
-            {/* Upload Controls & URL input */}
-            <div className="flex-1 space-y-3 text-xs w-full">
-              {/* Direct Gallery / Device Upload Button */}
-              <div className="flex flex-wrap gap-2.5">
-                <input
-                  type="file"
-                  id="settings-logo-file"
-                  accept="image/*"
-                  onChange={handleLogoFileUpload}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="settings-logo-file"
-                  className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer shrink-0"
-                >
-                  <UploadCloud className="w-4 h-4" />
-                  <span>গ্যালারি থেকে লোগো সিলেক্ট করুন (Choose from Gallery)</span>
-                </label>
-              </div>
-
-              {/* Or Web Link URL */}
-              <div className="space-y-1 pt-1">
-                <label className="text-slate-400 block font-medium">
-                  অথবা ছবির ওয়েব লিঙ্ক / Google Photos URL পেস্ট করুন:
-                </label>
-                <input
-                  type="url"
-                  value={formData.logoUrl || ''}
-                  onChange={(e) => {
-                    setLogoPreviewError(false);
-                    setFormData({ ...formData, logoUrl: e.target.value });
-                  }}
-                  placeholder="https://lh3.googleusercontent.com/... or image link"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-cyan-500 transition-colors"
-                />
-              </div>
-
-              <p className="text-[11px] text-slate-400 leading-relaxed pt-1">
-                ✓ নির্বাচিত লোগোটি সাইডবার, হেডার (উপরের বার), এবং সেলস মেমো/চালানে তাৎক্ষণিকভাবে সংরক্ষিত হয়ে প্রদর্শিত হবে।
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 1: Business Identity */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3.5">
-          <div className="flex items-center gap-2 text-white font-bold text-sm">
-            <Building2 className="w-4 h-4 text-cyan-400" />
-            <span>Showroom Profile (শোরুমের বিবরণ)</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div>
-              <label className="text-slate-400 block mb-1">Showroom Name *</label>
+            {/* Change Photo Dropdown Menu */}
+            <div className="relative">
               <input
-                type="text"
-                required
-                value={formData.showroomName}
-                onChange={(e) => setFormData({ ...formData, showroomName: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-semibold focus:outline-none focus:border-cyan-500"
+                type="file"
+                id="settings-logo-file"
+                accept="image/*"
+                onChange={(e) => {
+                  handleLogoFileUpload(e);
+                  setLogoMenuOpen(false);
+                }}
+                className="hidden"
               />
-            </div>
 
-            <div>
-              <label className="text-slate-400 block mb-1">Tagline</label>
-              <input
-                type="text"
-                value={formData.tagline}
-                onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLogoMenuOpen(!logoMenuOpen);
+                  setManagerMenuOpen(false);
+                }}
+                className="px-3.5 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-cyan-500/20 transition-all inline-flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>Change Photo</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${logoMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div>
-              <label className="text-slate-400 block mb-1">Showroom Contact No (Hotline) *</label>
-              <input
-                type="text"
-                required
-                value={formData.hotline}
-                onChange={(e) => setFormData({ ...formData, hotline: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
-              />
-            </div>
+              {logoMenuOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-30" 
+                    onClick={() => setLogoMenuOpen(false)} 
+                  />
+                  <div className="absolute left-0 mt-2 w-44 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-40 overflow-hidden">
+                    <label
+                      htmlFor="settings-logo-file"
+                      className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:text-white hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                    >
+                      <UploadCloud className="w-4 h-4 text-cyan-400" />
+                      <span>Upload</span>
+                    </label>
 
-            <div>
-              <label className="text-slate-400 block mb-1">WhatsApp *</label>
-              <input
-                type="text"
-                required
-                value={formData.whatsapp}
-                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-slate-400 block mb-1">Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div>
-              <label className="text-slate-400 block mb-1">Showroom Address *</label>
-              <input
-                type="text"
-                required
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-slate-400 block mb-1">Business Hours</label>
-              <input
-                type="text"
-                value={formData.openingHours}
-                onChange={(e) => setFormData({ ...formData, openingHours: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-              />
+                    {Boolean(formData.logoUrl && formData.logoUrl.trim()) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRemoveLogo();
+                          setLogoMenuOpen(false);
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 flex items-center gap-2.5 cursor-pointer transition-colors border-t border-slate-800/80"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-400" />
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
 
         {/* Section 2: Manager Profile & Photo */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-white font-bold text-sm">
               <User className="w-4 h-4 text-cyan-400" />
-              <span>Manager Profile (ম্যানেজারের তথ্য ও ছবি)</span>
+              <span>Manager Profile</span>
             </div>
-            {Boolean(formData.managerPhotoUrl && formData.managerPhotoUrl.trim()) && (
-              <button
-                type="button"
-                onClick={handleRemoveManagerPhoto}
-                className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>ছবি মুছে ফেলুন</span>
-              </button>
-            )}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 items-start">
+          <div className="flex items-center gap-4">
             {/* Manager Photo Preview */}
-            <div className="w-24 h-24 rounded-2xl bg-slate-950 border-2 border-cyan-500/40 flex items-center justify-center overflow-hidden shrink-0 shadow-lg relative group">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-950 border-2 border-cyan-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
               {Boolean(formData.managerPhotoUrl && formData.managerPhotoUrl.trim()) && !managerPhotoPreviewError ? (
-                <>
-                  <img
-                    src={formData.managerPhotoUrl!}
-                    alt="Manager Photo"
-                    onError={() => setManagerPhotoPreviewError(true)}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-[10px] text-white font-mono bg-slate-950/80 px-2 py-0.5 rounded">Active</span>
-                  </div>
-                </>
+                <img
+                  src={formData.managerPhotoUrl!}
+                  alt="Manager Photo"
+                  onError={() => setManagerPhotoPreviewError(true)}
+                  className="w-full h-full object-cover"
+                />
               ) : (
-                <div className="text-center p-2">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 font-black shadow-md mx-auto">
-                    <User className="w-6 h-6 text-slate-950" />
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-1">No Photo</div>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 font-black shadow-md">
+                  <User className="w-5 h-5 text-slate-950" />
                 </div>
               )}
             </div>
 
-            {/* Manager Photo Upload & Name/Contact Fields */}
-            <div className="flex-1 space-y-3 text-xs w-full">
-              <div className="flex flex-wrap gap-2.5">
-                <input
-                  type="file"
-                  id="settings-manager-photo-file"
-                  accept="image/*"
-                  onChange={handleManagerPhotoUpload}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="settings-manager-photo-file"
-                  className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer shrink-0"
-                >
-                  <UploadCloud className="w-4 h-4" />
-                  <span>গ্যালারি থেকে ম্যানেজারের ছবি আপলোড করুন</span>
-                </label>
-              </div>
+            {/* Change Photo Dropdown Menu */}
+            <div className="relative">
+              <input
+                type="file"
+                id="settings-manager-photo-file"
+                accept="image/*"
+                onChange={(e) => {
+                  handleManagerPhotoUpload(e);
+                  setManagerMenuOpen(false);
+                }}
+                className="hidden"
+              />
 
-              {/* Optional Photo URL */}
-              <div className="space-y-1">
-                <label className="text-slate-400 block font-medium">
-                  অথবা ম্যানেজারের ছবির ওয়েব লিঙ্ক পেস্ট করুন:
-                </label>
-                <input
-                  type="url"
-                  value={formData.managerPhotoUrl || ''}
-                  onChange={(e) => {
-                    setManagerPhotoPreviewError(false);
-                    setFormData({ ...formData, managerPhotoUrl: e.target.value });
-                  }}
-                  placeholder="https://example.com/manager-photo.jpg"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-cyan-500 transition-colors"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setManagerMenuOpen(!managerMenuOpen);
+                  setLogoMenuOpen(false);
+                }}
+                className="px-3.5 py-2 bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-cyan-500/20 transition-all inline-flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>Change Photo</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${managerMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="text-slate-400 block mb-1">ম্যানেজারের নাম (Manager Name) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.managerName}
-                    onChange={(e) => setFormData({ ...formData, managerName: e.target.value })}
-                    placeholder="Saddam Hossain"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-semibold focus:outline-none focus:border-cyan-500"
+              {managerMenuOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-30" 
+                    onClick={() => setManagerMenuOpen(false)} 
                   />
-                </div>
+                  <div className="absolute left-0 mt-2 w-44 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-40 overflow-hidden">
+                    <label
+                      htmlFor="settings-manager-photo-file"
+                      className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:text-white hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                    >
+                      <UploadCloud className="w-4 h-4 text-cyan-400" />
+                      <span>Upload</span>
+                    </label>
 
-                <div>
-                  <label className="text-slate-400 block mb-1">ম্যানেজারের মোবাইল নম্বর (Manager Contact) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.managerContact || ''}
-                    onChange={(e) => setFormData({ ...formData, managerContact: e.target.value })}
-                    placeholder="+880 1739-840603"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
-                  />
-                </div>
-              </div>
+                    {Boolean(formData.managerPhotoUrl && formData.managerPhotoUrl.trim()) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRemoveManagerPhoto();
+                          setManagerMenuOpen(false);
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 flex items-center gap-2.5 cursor-pointer transition-colors border-t border-slate-800/80"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-400" />
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+            <div>
+              <label className="text-slate-400 block mb-1">ম্যানেজারের নাম *</label>
+              <input
+                type="text"
+                required
+                value={formData.managerName}
+                onChange={(e) => updateField('managerName', e.target.value)}
+                placeholder="Saddam Hossain"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-semibold focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+
+            <div>
+              <label className="text-slate-400 block mb-1">মোবাইল নম্বর *</label>
+              <input
+                type="text"
+                required
+                value={formData.managerContact || ''}
+                onChange={(e) => updateField('managerContact', e.target.value)}
+                placeholder="+880 1739-840603"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-semibold focus:outline-none focus:border-cyan-500 font-mono"
+              />
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-1">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="px-3.5 py-2 rounded-xl border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Demo Data</span>
-          </button>
+        {/* Section 3: General Showroom Information */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 space-y-4">
+          <div className="flex items-center gap-2 text-white font-bold text-sm">
+            <Building2 className="w-4 h-4 text-cyan-400" />
+            <span>Showroom Details</span>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label className="text-slate-400 block mb-1">শোরুমের নাম *</label>
+              <input
+                type="text"
+                required
+                value={formData.showroomName}
+                onChange={(e) => updateField('showroomName', e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500 font-semibold"
+              />
+            </div>
+
+            <div>
+              <label className="text-slate-400 block mb-1">হটলাইন / মোবাইল নম্বর *</label>
+              <input
+                type="text"
+                required
+                value={formData.hotline}
+                onChange={(e) => updateField('hotline', e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500 font-mono"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-slate-400 block mb-1">ঠিকানা *</label>
+              <input
+                type="text"
+                required
+                value={formData.address}
+                onChange={(e) => updateField('address', e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-slate-400 block mb-1">সময়সূচি (Opening Hours)</label>
+              <input
+                type="text"
+                value={formData.openingHours}
+                onChange={(e) => updateField('openingHours', e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Save Bar */}
+        <div className="sticky bottom-4 z-20 pt-2 flex items-center justify-end">
           <button
             type="submit"
-            className="px-5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl shadow transition-colors flex items-center gap-1.5 text-xs"
+            disabled={isSaving}
+            className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-all shadow-lg flex items-center gap-2 cursor-pointer ${
+              savedSuccess 
+                ? 'bg-emerald-500 text-slate-950'
+                : hasUnsavedChanges
+                ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/25 active:scale-95'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+            }`}
           >
-            <Save className="w-3.5 h-3.5" />
-            <span>Save Settings</span>
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                <span>সংরক্ষণ হচ্ছে...</span>
+              </>
+            ) : savedSuccess ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-slate-950 stroke-[2.5]" />
+                <span>সংরক্ষিত হয়েছে!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>তথ্য সংরক্ষণ করুন</span>
+              </>
+            )}
           </button>
         </div>
       </form>

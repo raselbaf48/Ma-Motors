@@ -1,23 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivePage } from '../../types/bike';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Home, 
   Bike as BikeIcon, 
   Layers, 
   Tag, 
   Calculator, 
-  ShieldCheck, 
   SlidersHorizontal, 
   MapPin, 
-  User, 
   X, 
-  LogOut,
-  LogIn,
   Settings,
   FileText,
   Clock,
   Flame,
-  Award
+  Award,
+  Phone
 } from 'lucide-react';
 
 interface SidebarDrawerProps {
@@ -25,8 +23,8 @@ interface SidebarDrawerProps {
   onClose: () => void;
   currentPage: ActivePage;
   onNavigate: (page: ActivePage) => void;
-  isLoggedIn: boolean;
-  userName: string;
+  isLoggedIn?: boolean;
+  userName?: string;
   onLogout?: () => void;
   onLoginClick?: () => void;
   bikesCount?: number;
@@ -38,13 +36,11 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   onClose,
   currentPage,
   onNavigate,
-  isLoggedIn,
-  userName,
-  onLogout,
-  onLoginClick,
   bikesCount = 8,
   compareCount = 0
 }) => {
+  const { user, isAdmin, isCustomer, signOut, signInWithGmail, switchAccount } = useAuth();
+
   if (!isOpen) return null;
 
   const menuItems = [
@@ -175,58 +171,15 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
           })}
         </div>
 
-        {/* Bottom User Profile Badge & Logout (Matches Screenshot 2) */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-950/60 space-y-3">
-          {/* User Card */}
-          <div className="p-3 rounded-xl bg-[#111726] border border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-800 shrink-0 border border-slate-700 flex items-center justify-center">
-              <img 
-                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&h=120&q=80" 
-                alt="Profile" 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-              <User className="w-5 h-5 text-slate-400" />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold truncate">
-                {isLoggedIn ? 'RIDER MODE' : 'SHOWROOM GUEST'}
-              </div>
-              <div className="text-xs font-bold text-white truncate">
-                {userName || 'LAC Rasel'}
-              </div>
-            </div>
-
-            <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" />
-          </div>
-
-          {/* Logout / Login Button */}
-          {isLoggedIn ? (
-            <button
-              onClick={() => {
-                if (onLogout) onLogout();
-                onClose();
-              }}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-slate-300 bg-slate-900/90 hover:bg-slate-800 hover:text-white border border-slate-800 transition-colors flex items-center justify-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>LOGOUT</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                if (onLoginClick) onLoginClick();
-                handleItemClick('auth');
-              }}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2 shadow-md shadow-cyan-600/30"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>SIGN IN / PROFILE</span>
-            </button>
-          )}
+        {/* Drawer Footer Hotline & Info */}
+        <div className="p-4 border-t border-slate-800/80 bg-slate-950/60">
+          <a
+            href="tel:+8801711890432"
+            className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono text-cyan-400 hover:text-cyan-300 transition-colors"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            <span>+880 1711-890432</span>
+          </a>
         </div>
       </div>
     </div>

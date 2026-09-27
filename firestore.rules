@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isMasterAdmin() {
+      return isAuthenticated() && request.auth.token.email.lower() == 'raselbaf48@gmail.com';
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isMasterAdmin() || (isAuthenticated() && request.auth.uid == userId);
+    }
+
+    match /{document=**} {
+      allow read: if true;
+      allow write: if isMasterAdmin();
+    }
+  }
+}

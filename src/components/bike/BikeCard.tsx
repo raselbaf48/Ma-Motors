@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Bike } from '../../types/bike';
 import { BikeVisual } from '../common/BikeVisual';
 import { formatBDT } from '../../utils/formatters';
@@ -30,6 +30,34 @@ export const BikeCard: React.FC<BikeCardProps> = ({
   onQuickInquire,
   layout = 'grid'
 }) => {
+  const [hasEnteredView, setHasEnteredView] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    if (typeof IntersectionObserver === 'undefined') {
+      setHasEnteredView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasEnteredView(true);
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '40px 0px 40px 0px'
+      }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const effectivePrice = bike.askingPrice || bike.price || 0;
   // Approximate 24-month EMI with 20% down payment and ~10% annual interest
   const downPayment = Math.round(effectivePrice * 0.2);
@@ -40,7 +68,12 @@ export const BikeCard: React.FC<BikeCardProps> = ({
 
   if (layout === 'list') {
     return (
-      <div className="bg-slate-900/80 border border-slate-800/90 rounded-xl overflow-hidden hover:border-slate-700 transition-all duration-200 flex flex-col sm:flex-row group">
+      <div 
+        ref={cardRef}
+        className={`bg-slate-900/80 border border-slate-800/90 rounded-xl overflow-hidden hover:border-slate-700 transition-all duration-500 ease-out flex flex-col sm:flex-row group ${
+          hasEnteredView ? 'opacity-100 translate-y-0' : 'opacity-30 translate-y-3'
+        }`}
+      >
         {/* Left Visual */}
         <div 
           onClick={() => onSelect(bike)}
@@ -182,7 +215,12 @@ export const BikeCard: React.FC<BikeCardProps> = ({
 
   // Grid layout (default)
   return (
-    <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl overflow-hidden hover:border-slate-700/80 hover:shadow-xl hover:shadow-black/40 transition-all duration-200 flex flex-col group">
+    <div 
+      ref={cardRef}
+      className={`bg-slate-900/90 border border-slate-800/90 rounded-xl overflow-hidden hover:border-slate-700/80 hover:shadow-xl hover:shadow-cyan-950/20 transition-all duration-500 ease-out flex flex-col group ${
+        hasEnteredView ? 'opacity-100 translate-y-0 scale-100' : 'opacity-30 translate-y-4 scale-[0.98]'
+      }`}
+    >
       {/* Top Image Artwork */}
       <div 
         onClick={() => onSelect(bike)} 

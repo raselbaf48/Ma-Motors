@@ -20,6 +20,8 @@ import { findModelSpec, getModelDefaultImage, getModelDefaultBrakingSystem } fro
 
 import { AppSidebar } from './components/layout/AppSidebar';
 import { AppTopBar } from './components/layout/AppTopBar';
+import { useAuth } from './context/AuthContext';
+import { AdminRestrictedNotice } from './components/common/AdminRestrictedNotice';
 
 import { DashboardView } from './pages/DashboardView';
 import { StockView } from './pages/StockView';
@@ -30,8 +32,11 @@ import { SettingsView } from './pages/SettingsView';
 import { BikeDetailView } from './pages/BikeDetailView';
 import { AdditionalCostPage } from './pages/AdditionalCostPage';
 import { AddBikePage } from './pages/AddBikePage';
+import { AdminPage } from './pages/AdminPage';
 
 export default function App() {
+  const { isAdmin, signInWithGmail } = useAuth();
+
   // Navigation: Default to 'dashboard' (Option 1)
   const [currentPage, setCurrentPage] = useState<ActivePage>('dashboard');
   // Sidebar hidden by default on all devices like mobile view
@@ -40,13 +45,127 @@ export default function App() {
   // Reference to main scroll container to ensure scroll resets to top upon navigation
   const mainScrollRef = useRef<HTMLElement>(null);
 
-  // Core Data States
-  const [bikes, setBikes] = useState<Bike[]>(INITIAL_BIKES);
-  const [purchases, setPurchases] = useState<PurchaseRecord[]>(INITIAL_PURCHASES);
-  const [sales, setSales] = useState<SaleRecord[]>(INITIAL_SALES);
-  const [inquiries, setInquiries] = useState<CustomerInquiry[]>(INITIAL_INQUIRIES);
-  const [sellRequests, setSellRequests] = useState<SellBikeSubmission[]>(INITIAL_SELL_REQUESTS);
-  const [settings, setSettings] = useState<ShowroomSettings>(DEFAULT_SETTINGS);
+  // Storage Keys for persistent storage
+  const STORAGE_KEYS = {
+    BIKES: 'mamotors_bikes_v2',
+    PURCHASES: 'mamotors_purchases_v2',
+    SALES: 'mamotors_sales_v2',
+    INQUIRIES: 'mamotors_inquiries_v2',
+    SELL_REQUESTS: 'mamotors_sell_requests_v2',
+    SETTINGS: 'mamotors_settings_v2'
+  };
+
+  // Core Data States with localStorage persistence
+  const [bikes, setBikes] = useState<Bike[]>(() => {
+    try {
+      const saved = localStorage.getItem('mamotors_bikes_v2');
+      return saved ? JSON.parse(saved) : INITIAL_BIKES;
+    } catch {
+      return INITIAL_BIKES;
+    }
+  });
+
+  const [purchases, setPurchases] = useState<PurchaseRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('mamotors_purchases_v2');
+      return saved ? JSON.parse(saved) : INITIAL_PURCHASES;
+    } catch {
+      return INITIAL_PURCHASES;
+    }
+  });
+
+  const [sales, setSales] = useState<SaleRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('mamotors_sales_v2');
+      return saved ? JSON.parse(saved) : INITIAL_SALES;
+    } catch {
+      return INITIAL_SALES;
+    }
+  });
+
+  const [inquiries, setInquiries] = useState<CustomerInquiry[]>(() => {
+    try {
+      const saved = localStorage.getItem('mamotors_inquiries_v2');
+      return saved ? JSON.parse(saved) : INITIAL_INQUIRIES;
+    } catch {
+      return INITIAL_INQUIRIES;
+    }
+  });
+
+  const [sellRequests, setSellRequests] = useState<SellBikeSubmission[]>(() => {
+    try {
+      const saved = localStorage.getItem('mamotors_sell_requests_v2');
+      return saved ? JSON.parse(saved) : INITIAL_SELL_REQUESTS;
+    } catch {
+      return INITIAL_SELL_REQUESTS;
+    }
+  });
+
+  const [settings, setSettings] = useState<ShowroomSettings>(() => {
+    try {
+      const saved = localStorage.getItem('mamotors_settings_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Default logo removed - clear previous temporary logo file references if any
+        if (parsed.logoUrl === '/app-logo.jpg' || parsed.logoUrl === '/logo.svg') {
+          parsed.logoUrl = '';
+        }
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_SETTINGS;
+  });
+
+  // Sync state changes automatically to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.BIKES, JSON.stringify(bikes));
+    } catch (err) {
+      console.warn('LocalStorage save error (bikes):', err);
+    }
+  }, [bikes]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PURCHASES, JSON.stringify(purchases));
+    } catch (err) {
+      console.warn('LocalStorage save error (purchases):', err);
+    }
+  }, [purchases]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(sales));
+    } catch (err) {
+      console.warn('LocalStorage save error (sales):', err);
+    }
+  }, [sales]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.INQUIRIES, JSON.stringify(inquiries));
+    } catch (err) {
+      console.warn('LocalStorage save error (inquiries):', err);
+    }
+  }, [inquiries]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SELL_REQUESTS, JSON.stringify(sellRequests));
+    } catch (err) {
+      console.warn('LocalStorage save error (sellRequests):', err);
+    }
+  }, [sellRequests]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    } catch (err) {
+      console.warn('LocalStorage save error (settings):', err);
+    }
+  }, [settings]);
 
   // Selected bike for detailed technical view
   const [selectedBike, setSelectedBike] = useState<Bike | null>(INITIAL_BIKES[0]);
@@ -215,6 +334,16 @@ export default function App() {
   };
 
   const handleResetDemoData = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.BIKES);
+      localStorage.removeItem(STORAGE_KEYS.PURCHASES);
+      localStorage.removeItem(STORAGE_KEYS.SALES);
+      localStorage.removeItem(STORAGE_KEYS.INQUIRIES);
+      localStorage.removeItem(STORAGE_KEYS.SELL_REQUESTS);
+      localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+    } catch {
+      // ignore
+    }
     setBikes(INITIAL_BIKES);
     setPurchases(INITIAL_PURCHASES);
     setSales(INITIAL_SALES);
@@ -233,6 +362,18 @@ export default function App() {
 
   // Dedicated Full-Page Add Bike View (Scrollable full height dedicated page)
   if (currentPage === 'add-bike') {
+    if (!isAdmin) {
+      return (
+        <div key="add-bike-page" className="animate-page-enter fixed inset-0 w-screen h-screen overflow-y-auto overflow-x-hidden bg-slate-950 p-6 flex items-center justify-center">
+          <AdminRestrictedNotice
+            pageTitle="Add Bike to Stock"
+            onOpenLogin={() => signInWithGmail()}
+            onBackToCollection={() => setCurrentPage('stock')}
+          />
+        </div>
+      );
+    }
+
     return (
       <div key="add-bike-page" className="animate-page-enter fixed inset-0 w-screen h-screen overflow-y-auto overflow-x-hidden bg-slate-950">
         <AddBikePage
@@ -309,6 +450,15 @@ export default function App() {
         logoUrl={settings.logoUrl}
         hotline={settings.hotline}
         address={settings.address}
+        managerName={settings.managerName}
+        managerContact={settings.managerContact}
+        managerPhotoUrl={settings.managerPhotoUrl}
+        onUpdateManagerPhoto={(newPhoto) => {
+          handleUpdateSettings({ ...settings, managerPhotoUrl: newPhoto });
+        }}
+        onUpdateLogo={(newLogo) => {
+          handleUpdateSettings({ ...settings, logoUrl: newLogo });
+        }}
       />
 
       {/* Main Content Area - In flex-row, so desktop push sidebar never obscures right side content! */}
@@ -327,6 +477,9 @@ export default function App() {
             hotline={settings.hotline}
             showroomName={settings.showroomName || 'Ma Motors'}
             logoUrl={settings.logoUrl}
+            onUpdateLogo={(newLogo) => {
+              handleUpdateSettings({ ...settings, logoUrl: newLogo });
+            }}
           />
         </div>
 
@@ -370,24 +523,40 @@ export default function App() {
 
             {/* 3. Purchase */}
             {currentPage === 'purchase' && (
-              <PurchaseView
-                purchases={purchases}
-                onAddPurchase={handleAddPurchase}
-                onDeletePurchase={handleDeletePurchase}
-                isAddModalOpen={isPurchaseAddModalOpen}
-                onCloseAddModal={() => setIsPurchaseAddModalOpen(false)}
-              />
+              isAdmin ? (
+                <PurchaseView
+                  purchases={purchases}
+                  onAddPurchase={handleAddPurchase}
+                  onDeletePurchase={handleDeletePurchase}
+                  isAddModalOpen={isPurchaseAddModalOpen}
+                  onCloseAddModal={() => setIsPurchaseAddModalOpen(false)}
+                />
+              ) : (
+                <AdminRestrictedNotice
+                  pageTitle="Purchase Management"
+                  onOpenLogin={() => signInWithGmail()}
+                  onBackToCollection={() => setCurrentPage('stock')}
+                />
+              )
             )}
 
             {/* 4. Sell */}
             {currentPage === 'sell' && (
-              <SellView
-                sales={sales}
-                sellRequests={sellRequests}
-                bikes={bikes}
-                onAddSale={handleAddSale}
-                onUpdateSellStatus={handleUpdateSellRequestStatus}
-              />
+              isAdmin ? (
+                <SellView
+                  sales={sales}
+                  sellRequests={sellRequests}
+                  bikes={bikes}
+                  onAddSale={handleAddSale}
+                  onUpdateSellStatus={handleUpdateSellRequestStatus}
+                />
+              ) : (
+                <AdminRestrictedNotice
+                  pageTitle="Sales & Financial Entries"
+                  onOpenLogin={() => signInWithGmail()}
+                  onBackToCollection={() => setCurrentPage('stock')}
+                />
+              )
             )}
 
             {/* 5. Contact */}
@@ -402,14 +571,45 @@ export default function App() {
 
             {/* 6. Settings */}
             {currentPage === 'settings' && (
-              <SettingsView
-                settings={settings}
-                onUpdateSettings={handleUpdateSettings}
-                onResetDemoData={handleResetDemoData}
-                bikesCount={bikes.length}
-                purchasesCount={purchases.length}
-                salesCount={sales.length}
-              />
+              isAdmin ? (
+                <SettingsView
+                  settings={settings}
+                  onUpdateSettings={handleUpdateSettings}
+                  onResetDemoData={handleResetDemoData}
+                  bikesCount={bikes.length}
+                  purchasesCount={purchases.length}
+                  salesCount={sales.length}
+                />
+              ) : (
+                <AdminRestrictedNotice
+                  pageTitle="Showroom Settings"
+                  onOpenLogin={() => signInWithGmail()}
+                  onBackToCollection={() => setCurrentPage('stock')}
+                />
+              )
+            )}
+
+            {/* 7. Dedicated Admin Panel */}
+            {currentPage === 'admin' && (
+              isAdmin ? (
+                <AdminPage
+                  bikes={bikes}
+                  inquiries={inquiries}
+                  sellRequests={sellRequests}
+                  onAddBike={handleAddBikeToStock}
+                  onUpdateBike={handleUpdateBike}
+                  onDeleteBike={handleDeleteBike}
+                  onUpdateInquiryStatus={handleUpdateInquiryStatus}
+                  onUpdateSellStatus={handleUpdateSellRequestStatus}
+                  onNavigate={handleNavigate}
+                />
+              ) : (
+                <AdminRestrictedNotice
+                  pageTitle="Dealer DMS Admin"
+                  onOpenLogin={() => signInWithGmail()}
+                  onBackToCollection={() => setCurrentPage('stock')}
+                />
+              )
             )}
           </div>
         </main>

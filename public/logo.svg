@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <!-- Outer Ring Gradient -->
+    <linearGradient id="neonCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="50%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#0891b2" />
+    </linearGradient>
+
+    <!-- Metallic Dark Shield Gradient -->
+    <linearGradient id="darkBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#020617" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+
+    <!-- Wing / Accent Gradient -->
+    <linearGradient id="goldCyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#a5f3fc" />
+    </linearGradient>
+
+    <!-- Inner Glow Shadow -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Circular Outer Glow -->
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.3" />
+  
+  <!-- Outer Cyber Border -->
+  <circle cx="100" cy="100" r="92" fill="url(#darkBg)" stroke="url(#neonCyan)" stroke-width="3" />
+  <circle cx="100" cy="100" r="86" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="3 3" opacity="0.6" />
+
+  <!-- Speed Lines / Wing Accents Left -->
+  <path d="M 38 98 L 70 98 L 64 105 L 34 105 Z" fill="url(#goldCyan)" opacity="0.85" />
+  <path d="M 46 109 L 68 109 L 63 115 L 42 115 Z" fill="url(#goldCyan)" opacity="0.6" />
+  <path d="M 54 119 L 67 119 L 63 124 L 51 124 Z" fill="url(#goldCyan)" opacity="0.4" />
+
+  <!-- Speed Lines / Wing Accents Right -->
+  <path d="M 162 98 L 130 98 L 136 105 L 166 105 Z" fill="url(#goldCyan)" opacity="0.85" />
+  <path d="M 154 109 L 132 109 L 137 115 L 158 115 Z" fill="url(#goldCyan)" opacity="0.6" />
+  <path d="M 146 119 L 133 119 L 137 124 L 149 124 Z" fill="url(#goldCyan)" opacity="0.4" />
+
+  <!-- Central Superbike Silhouette & Speed Motif -->
+  <g transform="translate(0, -6)">
+    <!-- Sleek Racing Motorcycle Silhouette -->
+    <path d="M 72 82 C 78 74 88 70 96 70 C 104 70 114 74 120 82 L 128 92 C 132 94 135 97 135 100 C 135 102 133 103 130 103 L 118 103 C 114 98 108 95 100 95 C 92 95 86 98 82 103 L 68 103 C 65 103 63 102 63 100 C 63 97 66 94 70 92 Z" fill="#0891b2" opacity="0.4" />
+
+    <!-- Stylized Aggressive Sporty "M" Wings -->
+    <path d="M 64 88 L 78 48 L 92 78 L 100 62 L 108 78 L 122 48 L 136 88 L 124 88 L 115 65 L 104 85 L 96 85 L 85 65 L 76 88 Z" fill="url(#neonCyan)" filter="url(#glow)" />
+    
+    <!-- Inner Highlights on M -->
+    <path d="M 78 48 L 86 67 L 89 67 L 81 50 Z" fill="#ffffff" opacity="0.7" />
+    <path d="M 122 48 L 114 67 L 111 67 L 119 50 Z" fill="#ffffff" opacity="0.7" />
+    <polygon points="100,68 104,78 96,78" fill="#a5f3fc" />
+
+    <!-- Center Bike Headlight / Crystal Jewel -->
+    <circle cx="100" cy="88" r="4.5" fill="#ffffff" filter="url(#glow)" />
+    <circle cx="100" cy="88" r="2.5" fill="#22d3ee" />
+  </g>
+
+  <!-- Banner / Arc Text: MA MOTORS -->
+  <path id="textArcTop" d="M 32 100 A 68 68 0 0 1 168 100" fill="none" stroke="none" />
+  <text font-family="'Cabinet Grotesk', 'Plus Jakarta Sans', Arial, sans-serif" font-size="14" font-weight="900" fill="#ffffff" letter-spacing="4">
+    <textPath href="#textArcTop" startOffset="50%" text-anchor="middle">
+      MA MOTORS
+    </textPath>
+  </text>
+
+  <!-- Bottom Arch Subtitle -->
+  <path id="textArcBottom" d="M 168 100 A 68 68 0 0 1 32 100" fill="none" stroke="none" />
+  <text font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="9" font-weight="800" fill="#22d3ee" letter-spacing="3">
+    <textPath href="#textArcBottom" startOffset="50%" text-anchor="middle">
+      MOTORCYCLE SHOWROOM
+    </textPath>
+  </text>
+
+  <!-- Stars / Tech Dots -->
+  <polygon points="36,98 39,101 36,104 33,101" fill="#22d3ee" />
+  <polygon points="164,98 167,101 164,104 161,101" fill="#22d3ee" />
+  
+  <!-- Subtle ESTD Year Badge -->
+  <g transform="translate(100, 134)">
+    <rect x="-24" y="-7" width="48" height="14" rx="7" fill="#0891b2" fill-opacity="0.3" stroke="#22d3ee" stroke-width="0.8" />
+    <text x="0" y="3.5" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="7.5" font-weight="800" fill="#a5f3fc" text-anchor="middle" letter-spacing="1.5">ESTD 2018</text>
+  </g>
+</svg>

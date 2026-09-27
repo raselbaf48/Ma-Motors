@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Bike } from '../types/bike';
 import { formatBDT } from '../utils/formatters';
 import { BikeVisual } from '../components/common/BikeVisual';
+import { useAuth } from '../context/AuthContext';
 import { 
   Search, 
   Plus, 
@@ -13,7 +14,11 @@ import {
   Camera,
   Trash2,
   UploadCloud,
-  ShieldCheck
+  ShieldCheck,
+  Crown,
+  Lock,
+  Sparkles,
+  CreditCard
 } from 'lucide-react';
 
 interface StockViewProps {
@@ -39,6 +44,7 @@ export const StockView: React.FC<StockViewProps> = ({
   isAddModalOpen = false,
   onCloseAddModal
 }) => {
+  const { isAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Available' | 'Sold'>('ALL');
@@ -212,51 +218,88 @@ export const StockView: React.FC<StockViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            if (onNavigateToAddBike) {
-              onNavigateToAddBike();
-            } else {
-              handleOpenAdd();
-            }
-          }}
-          className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Bike</span>
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => {
+              if (onNavigateToAddBike) {
+                onNavigateToAddBike();
+              } else {
+                handleOpenAdd();
+              }
+            }}
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Bike (Admin)</span>
+          </button>
+        )}
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
-          <div className="text-[11px] text-slate-400">Total in Collection</div>
-          <div className="text-xl font-bold text-white font-mono mt-1">
-            {inStockList.length} <span className="text-xs text-slate-400 font-normal">available</span>
+      {/* KPI Cards: Admin sees dealership financial metrics, Customer sees showroom guarantees */}
+      {isAdmin ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+            <div className="text-[11px] text-slate-400">Total in Collection</div>
+            <div className="text-xl font-bold text-white font-mono mt-1">
+              {inStockList.length} <span className="text-xs text-slate-400 font-normal">available</span>
+            </div>
           </div>
-        </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
-          <div className="text-[11px] text-slate-400">Procurement Cost</div>
-          <div className="text-xl font-bold text-slate-300 font-mono mt-1">
-            {formatBDT(totalCost)}
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+            <div className="text-[11px] text-slate-400">Procurement Cost</div>
+            <div className="text-xl font-bold text-slate-300 font-mono mt-1">
+              {formatBDT(totalCost)}
+            </div>
           </div>
-        </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
-          <div className="text-[11px] text-slate-400">Total Prep Cost (রেডি খরচ)</div>
-          <div className="text-xl font-bold text-cyan-400 font-mono mt-1">
-            +{formatBDT(totalPrepCost)}
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+            <div className="text-[11px] text-slate-400">Total Prep Cost (রেডি খরচ)</div>
+            <div className="text-xl font-bold text-cyan-400 font-mono mt-1">
+              +{formatBDT(totalPrepCost)}
+            </div>
           </div>
-        </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
-          <div className="text-[11px] text-slate-400">Total Collection Value</div>
-          <div className="text-xl font-bold text-emerald-400 font-mono mt-1">
-            {formatBDT(totalAsking)}
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+            <div className="text-[11px] text-slate-400">Total Collection Value</div>
+            <div className="text-xl font-bold text-emerald-400 font-mono mt-1">
+              {formatBDT(totalAsking)}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+            <div className="text-[11px] text-slate-400">Available in Showroom</div>
+            <div className="text-xl font-bold text-cyan-400 font-mono mt-1">
+              {inStockList.length} <span className="text-xs text-slate-400 font-normal">Premium Bikes</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+            <div className="text-[11px] text-slate-400">Quality Inspection</div>
+            <div className="text-base font-bold text-emerald-400 font-mono mt-1.5 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>50-Point Certified</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+            <div className="text-[11px] text-slate-400">EMI Facility</div>
+            <div className="text-base font-bold text-amber-300 font-mono mt-1.5 flex items-center gap-1.5">
+              <CreditCard className="w-4 h-4 text-amber-400" />
+              <span>Up to 24 Months</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
+            <div className="text-[11px] text-slate-400">Ownership & Papers</div>
+            <div className="text-base font-bold text-white font-mono mt-1.5 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <span>100% Genuine</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filter and Search Controls */}
       <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-xl space-y-3">
@@ -493,7 +536,7 @@ export const StockView: React.FC<StockViewProps> = ({
                     </div>
 
                     <div className="text-right">
-                      {(bike.additionalCosts?.length ?? 0) > 0 ? (
+                      {isAdmin && (bike.additionalCosts?.length ?? 0) > 0 ? (
                         <div>
                           <div className="text-[10px] text-slate-400 font-medium">Addl Cost</div>
                           <div className="font-mono text-cyan-300 font-bold text-xs">

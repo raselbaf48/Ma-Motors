@@ -1421,7 +1421,7 @@ export const DEFAULT_SETTINGS: ShowroomSettings = {
   currencySymbol: '৳',
   managerName: 'Saddam Hossain',
   managerContact: '+880 1739-840603',
-  managerPhotoUrl: '',
+  managerPhotoUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80',
   openingHours: '9:00 AM - 8:30 PM',
   logoUrl: ''
 };

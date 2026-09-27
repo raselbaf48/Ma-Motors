@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Bike } from '../../types/bike';
 import { Camera, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -79,11 +79,11 @@ export const BikeVisual: React.FC<BikeVisualProps> = ({
   bike,
   className = '',
   aspect = '4/3',
-  activeImageIndex = 0,
+  activeImageIndex,
   customImageUrl,
   onSlideChange,
   autoPlay = true,
-  slideOnHoverOnly = true
+  slideOnHoverOnly = false
 }) => {
   const [imageError, setImageError] = useState(false);
 
@@ -116,66 +116,141 @@ export const BikeVisual: React.FC<BikeVisualProps> = ({
     return [];
   }, [bike.images, customImageUrl]);
 
-  const [slideIndex, setSlideIndex] = useState(activeImageIndex || 0);
+  const isControlled = typeof activeImageIndex === 'number';
+  const [internalIndex, setInternalIndex] = useState(activeImageIndex ?? 0);
   const [isHovered, setIsHovered] = useState(false);
+  const [isInView, setIsInView] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
 
-  // Sync if parent passes explicit activeImageIndex
+  // Sync internalIndex when controlled activeImageIndex changes
   useEffect(() => {
-    if (typeof activeImageIndex === 'number' && activeImageIndex >= 0 && activeImageIndex < rawList.length) {
-      setSlideIndex(activeImageIndex);
+    if (typeof activeImageIndex === 'number') {
+      setInternalIndex(activeImageIndex);
     }
-  }, [activeImageIndex, rawList.length]);
+  }, [activeImageIndex]);
+
+  // IntersectionObserver: Detect when this bike box scrolls into view on mobile
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (typeof IntersectionObserver === 'undefined') {
+      setIsInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+      },
+      {
+        threshold: 0.15,
+        rootMargin: '60px 0px 60px 0px'
+      }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const onSlideChangeRef = useRef(onSlideChange);
+  useEffect(() => {
+    onSlideChangeRef.current = onSlideChange;
+  }, [onSlideChange]);
+
+  const currentSlide = isControlled ? (activeImageIndex ?? 0) : internalIndex;
+  const currentSlideRef = useRef(currentSlide);
+  useEffect(() => {
+    currentSlideRef.current = currentSlide;
+  }, [currentSlide]);
+
+  const [prevSlide, setPrevSlide] = useState(currentSlide);
+
+  useEffect(() => {
+    if (currentSlide !== prevSlide) {
+      const timer = setTimeout(() => {
+        setPrevSlide(currentSlide);
+      }, 750);
+      return () => clearTimeout(timer);
+    }
+  }, [currentSlide, prevSlide]);
+
+  const goToSlide = (nextIndex: number) => {
+    if (!isControlled) {
+      setInternalIndex(nextIndex);
+    }
+    if (onSlideChangeRef.current) {
+      onSlideChangeRef.current(nextIndex);
+    }
+  };
 
   // Slideshow auto-advance:
-  // If slideOnHoverOnly is true (default for cards): ONLY advances when cursor hovers on this bike box (isHovered === true)!
-  // All other bikes stay fixed on their picture!
+  // Starts automatically when scrolled into view on mobile (isInView) OR when hovered with cursor on desktop (isHovered)
   useEffect(() => {
     if (rawList.length <= 1) return;
 
-    if (slideOnHoverOnly) {
-      if (!isHovered) return;
-      const interval = setInterval(() => {
-        setSlideIndex((prev) => {
-          const next = (prev + 1) % rawList.length;
-          if (onSlideChange) onSlideChange(next);
-          return next;
-        });
-      }, 1600); // Smooth 1.6s slide when cursor is placed on this bike
-      return () => clearInterval(interval);
-    } else {
-      if (!autoPlay || isHovered) return;
-      const interval = setInterval(() => {
-        setSlideIndex((prev) => {
-          const next = (prev + 1) % rawList.length;
-          if (onSlideChange) onSlideChange(next);
-          return next;
-        });
-      }, 3000);
-      return () => clearInterval(interval);
+    const shouldPlay = autoPlay && (isInView || isHovered);
+    if (!shouldPlay) return;
+
+    const interval = setInterval(() => {
+      const current = currentSlideRef.current;
+      const next = (current + 1) % rawList.length;
+      goToSlide(next);
+    }, 2800); // Smooth 2.8s slide transition
+
+    return () => clearInterval(interval);
+  }, [rawList.length, isHovered, isInView, autoPlay, isControlled]);
+
+  const handleNext = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const current = currentSlideRef.current;
+    const next = (current + 1) % rawList.length;
+    goToSlide(next);
+  };
+
+  const handlePrev = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const current = currentSlideRef.current;
+    const next = (current - 1 + rawList.length) % rawList.length;
+    goToSlide(next);
+  };
+
+  const handleSelectDot = (e: React.MouseEvent | React.TouchEvent, idx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    goToSlide(idx);
+  };
+
+  // Touch Swipe for Mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
+
+    // Horizontal swipe threshold: 30px
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+      const current = currentSlideRef.current;
+      if (deltaX < 0) {
+        // Swiped left -> next photo
+        const next = (current + 1) % rawList.length;
+        goToSlide(next);
+      } else {
+        // Swiped right -> previous photo
+        const prevIdx = (current - 1 + rawList.length) % rawList.length;
+        goToSlide(prevIdx);
+      }
     }
-  }, [rawList.length, isHovered, autoPlay, slideOnHoverOnly, onSlideChange]);
-
-  const handleNext = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const next = (slideIndex + 1) % rawList.length;
-    setSlideIndex(next);
-    if (onSlideChange) onSlideChange(next);
-  };
-
-  const handlePrev = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const prev = (slideIndex - 1 + rawList.length) % rawList.length;
-    setSlideIndex(prev);
-    if (onSlideChange) onSlideChange(prev);
-  };
-
-  const handleSelectDot = (e: React.MouseEvent, idx: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setSlideIndex(idx);
-    if (onSlideChange) onSlideChange(idx);
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
   };
 
   const aspectClass = aspect === '4/3' ? 'aspect-[4/3]' : aspect === '16/9' ? 'aspect-[16/9]' : 'h-full min-h-[220px]';
@@ -184,25 +259,36 @@ export const BikeVisual: React.FC<BikeVisualProps> = ({
   if (rawList.length > 0 && !imageError) {
     return (
       <div 
+        ref={containerRef}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         className={`relative w-full overflow-hidden bg-slate-950 flex items-center justify-center select-none group ${aspectClass} ${className}`}
       >
-        {/* Slideshow Image Stack (Zero-Flicker Cross-Fade) */}
-        {rawList.map((imgUrl, idx) => (
-          <img
-            key={idx}
-            src={imgUrl}
-            alt={`${bike.name} - Photo ${idx + 1}`}
-            onError={() => setImageError(true)}
-            className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-in-out group-hover:scale-105 ${
-              slideIndex === idx 
-                ? 'opacity-100 z-10 scale-100' 
-                : 'opacity-0 z-0 scale-95 pointer-events-none'
-            }`}
-            loading={idx === 0 ? 'eager' : 'lazy'}
-          />
-        ))}
+        {/* Slideshow Image Stack: Smooth Visible / Invisible Dissolve Cross-Fade */}
+        {rawList.map((imgUrl, idx) => {
+          const isCurrent = currentSlide === idx;
+          const isPrevious = prevSlide === idx && !isCurrent;
+
+          let animClasses = 'opacity-0 z-0 pointer-events-none';
+          if (isCurrent) {
+            animClasses = 'opacity-100 z-20';
+          } else if (isPrevious) {
+            animClasses = 'opacity-0 z-10 pointer-events-none';
+          }
+
+          return (
+            <img
+              key={idx}
+              src={imgUrl}
+              alt={`${bike.name} - Photo ${idx + 1}`}
+              onError={() => setImageError(true)}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out will-change-[opacity] ${animClasses}`}
+              loading={idx === 0 ? 'eager' : 'lazy'}
+            />
+          );
+        })}
 
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20 pointer-events-none z-10" />
 
@@ -216,25 +302,37 @@ export const BikeVisual: React.FC<BikeVisualProps> = ({
           </span>
         </div>
 
-        {/* Slideshow Next & Previous Arrow Controls (Only when > 1 image) */}
+        {/* Slideshow Next & Previous Arrow Controls (Always Visible & Clickable) */}
         {rawList.length > 1 && (
           <>
             <button
               type="button"
               aria-label="Previous photo"
               onClick={handlePrev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-30 p-1.5 rounded-full bg-slate-950/80 hover:bg-slate-900 text-slate-300 hover:text-white border border-slate-800/80 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 shadow-md cursor-pointer hover:scale-110 active:scale-95"
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handlePrev(e);
+              }}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-slate-950/85 hover:bg-slate-900 active:bg-cyan-500 active:text-slate-950 text-white hover:text-cyan-400 border border-slate-700/90 backdrop-blur-md transition-all shadow-xl flex items-center justify-center cursor-pointer hover:scale-110 active:scale-90"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
             </button>
 
             <button
               type="button"
               aria-label="Next photo"
               onClick={handleNext}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-30 p-1.5 rounded-full bg-slate-950/80 hover:bg-slate-900 text-slate-300 hover:text-white border border-slate-800/80 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 shadow-md cursor-pointer hover:scale-110 active:scale-95"
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handleNext(e);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-slate-950/85 hover:bg-slate-900 active:bg-cyan-500 active:text-slate-950 text-white hover:text-cyan-400 border border-slate-700/90 backdrop-blur-md transition-all shadow-xl flex items-center justify-center cursor-pointer hover:scale-110 active:scale-90"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-5 h-5 stroke-[2.5]" />
             </button>
 
             {/* Pagination Dots at Bottom Center */}
@@ -245,9 +343,15 @@ export const BikeVisual: React.FC<BikeVisualProps> = ({
                   type="button"
                   aria-label={`Slide ${idx + 1}`}
                   onClick={(e) => handleSelectDot(e, idx)}
-                  className={`transition-all rounded-full cursor-pointer ${
-                    slideIndex === idx
-                      ? 'w-5 h-1.5 bg-cyan-400 shadow-md shadow-cyan-400/50'
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onTouchEnd={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleSelectDot(e, idx);
+                  }}
+                  className={`transition-all rounded-full cursor-pointer p-0.5 ${
+                    currentSlide === idx
+                      ? 'w-6 h-1.5 bg-cyan-400 shadow-md shadow-cyan-400/50'
                       : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/80'
                   }`}
                 />
@@ -257,15 +361,7 @@ export const BikeVisual: React.FC<BikeVisualProps> = ({
             {/* Slideshow Photo Counter in Corner */}
             <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 text-[10px] font-mono text-slate-300 bg-slate-950/85 px-2 py-0.5 rounded-md border border-slate-800/90 backdrop-blur-md z-20 shadow">
               <Camera className="w-3 h-3 text-cyan-400" />
-              <span>{slideIndex + 1}/{rawList.length}</span>
-            </div>
-
-            {/* Subtle Slideshow Progress Line at Bottom */}
-            <div className="absolute bottom-0 inset-x-0 h-0.5 bg-slate-900/60 z-20">
-              <div 
-                className="h-full bg-cyan-400 transition-all duration-300"
-                style={{ width: `${((slideIndex + 1) / rawList.length) * 100}%` }}
-              />
+              <span>{currentSlide + 1}/{rawList.length}</span>
             </div>
           </>
         )}

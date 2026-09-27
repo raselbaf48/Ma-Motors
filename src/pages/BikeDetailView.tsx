@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Bike, SaleRecord, AdditionalCostCategory, AdditionalCostItem } from '../types/bike';
 import { formatBDT } from '../utils/formatters';
 import { BikeVisual } from '../components/common/BikeVisual';
+import { useAuth } from '../context/AuthContext';
 import { 
   ArrowLeft, 
   Edit3, 
@@ -25,7 +26,11 @@ import {
   Sparkles,
   ShieldCheck,
   Play,
-  Pause
+  Pause,
+  Phone,
+  MessageCircle,
+  CreditCard,
+  Crown
 } from 'lucide-react';
 
 interface BikeDetailViewProps {
@@ -49,6 +54,7 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
   showroomName = 'Ma Motors',
   logoUrl
 }) => {
+  const { isAdmin } = useAuth();
   const [logoError, setLogoError] = useState(false);
   const isSold = bike.status === 'Sold';
   const effectiveAskingPrice = bike.askingPrice || bike.price || 0;
@@ -56,6 +62,11 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
 
   // Gallery active photo index
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  // Reset active photo index when viewing a different bike
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [bike.id]);
 
   // Sale Modal state (Pic/Bik er ei interface ta agei show hbe na, Sale This Bike click korle open hbe)
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
@@ -280,14 +291,16 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
               </div>
             )}
             
-            <button
-              onClick={handleOpenEdit}
-              className="px-3 sm:px-4 py-2 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-850 hover:to-slate-750 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="hidden sm:inline">Edit Details & Photos</span>
-              <span className="sm:hidden">Edit</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleOpenEdit}
+                className="px-3 sm:px-4 py-2 bg-gradient-to-r from-amber-500/20 to-amber-600/10 hover:from-amber-500/30 hover:to-amber-600/20 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Edit Details & Photos</span>
+                <span className="sm:hidden">Edit</span>
+              </button>
+            )}
 
             {/* Showroom Logo in Right Corner - Large & Prominent */}
             <div 
@@ -300,10 +313,10 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
                   src={logoUrl!} 
                   alt={showroomName} 
                   onError={() => setLogoError(true)} 
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover border-2 border-cyan-500/50 shadow-md shadow-cyan-500/20 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-cyan-500/60 shadow-md shadow-cyan-500/25 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 
                 />
               ) : (
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-base sm:text-xl shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform shrink-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-base sm:text-xl shadow-md shadow-cyan-500/25 group-hover:scale-105 transition-transform shrink-0 border-2 border-cyan-500/40">
                   M
                 </div>
               )}
@@ -357,7 +370,7 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
               bike={bike} 
               aspect="16/9" 
               activeImageIndex={activeImageIndex} 
-              onSlideChange={(idx) => setActiveImageIndex(idx)}
+              onSlideChange={setActiveImageIndex}
               autoPlay={isAutoPlaying}
               slideOnHoverOnly={false}
             />
@@ -565,116 +578,158 @@ export const BikeDetailView: React.FC<BikeDetailViewProps> = ({
           </div>
         </div>
 
-        {/* Additional Cost Breakdown Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                <Wrench className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <span>Additional Cost (অতিরিক্ত প্রস্তুতি ও সার্ভিস খরচ)</span>
-                  <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-500/30">
-                    +{formatBDT(totalPrepCost)}
-                  </span>
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  সার্ভিসিং, ওয়াশ, পলিশ, পার্টস বদলানোর যাবতীয় অতিরিক্ত খরচ
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigateToCost?.()}
-              className="px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{bike.additionalCosts && bike.additionalCosts.length > 0 ? 'Manage on Cost Page' : 'Add Additional Cost'}</span>
-            </button>
-          </div>
-
-          {(!bike.additionalCosts || bike.additionalCosts.length === 0) ? (
-            <div className="p-4 bg-slate-950/60 rounded-xl border border-dashed border-slate-800 text-center text-xs text-slate-500">
-              কোনো অতিরিক্ত খরচ এখনো যুক্ত করা হয়নি। সার্ভিসিং, ওয়াশ, পার্টস ইত্যাদি খরচ যোগ করতে 
-              <button 
-                type="button" 
-                onClick={() => onNavigateToCost?.()} 
-                className="text-cyan-400 font-semibold underline ml-1 hover:text-cyan-300 cursor-pointer"
-              >
-                Add Additional Cost এ ক্লিক করুন
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-              {bike.additionalCosts.map((c) => (
-                <div key={c.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                        c.category === 'Service' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                        c.category === 'Wash' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' :
-                        c.category === 'Polish' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
-                        c.category === 'Parts' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                        c.category === 'Repair' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                        'bg-slate-800 text-slate-300'
-                      }`}>
-                        {c.category}
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-mono">{c.date}</span>
-                    </div>
-                    <div className="text-slate-200 mt-1 font-medium truncate max-w-[160px]">{c.description}</div>
-                  </div>
-                  <div className="font-mono font-bold text-cyan-300 text-sm">
-                    +{formatBDT(c.amount)}
-                  </div>
+        {/* Additional Cost Breakdown Card (Admin Only) */}
+        {isAdmin && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <Wrench className="w-4 h-4" />
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* BOTTOM SALE ACTION BAR (Pic/Sale er interface agei show hbe na, Sale This Bike click korle open hbe) */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border-2 border-slate-800 hover:border-cyan-500/40 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-lg font-bold text-white">
-                {isSold ? 'Sales Record' : 'Sale This Bike (বাইক বিক্রয় করুন)'}
-              </h2>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              {isSold 
-                ? 'This bike is currently marked as Sold Out in the showroom inventory.' 
-                : 'Click the button to record sale invoice and mark this bike as Sold.'}
-            </p>
-          </div>
-
-          {isSold ? (
-            <div className="flex items-center gap-3">
-              <div className="bg-red-600 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl border border-red-400 uppercase tracking-wider shadow">
-                Sold Out
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>Additional Cost (অতিরিক্ত প্রস্তুতি ও সার্ভিস খরচ)</span>
+                    <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-500/30">
+                      +{formatBDT(totalPrepCost)}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    সার্ভিসিং, ওয়াশ, পলিশ, পার্টস বদলানোর যাবতীয় অতিরিক্ত খরচ
+                  </p>
+                </div>
               </div>
               <button
-                onClick={onNavigateToSales}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-medium text-xs rounded-xl transition-colors border border-slate-700"
+                type="button"
+                onClick={() => onNavigateToCost?.()}
+                className="px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer shrink-0"
               >
-                View Sales Invoices →
+                <Plus className="w-4 h-4" />
+                <span>{bike.additionalCosts && bike.additionalCosts.length > 0 ? 'Manage on Cost Page' : 'Add Additional Cost'}</span>
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => {
-                setSalePrice(effectiveAskingPrice);
-                setIsSaleModalOpen(true);
-              }}
-              className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 transform active:scale-95"
-            >
-              <DollarSign className="w-4 h-4" />
-              <span>Sale This Bike (বাইক বিক্রয় করুন)</span>
-            </button>
-          )}
-        </div>
+
+            {(!bike.additionalCosts || bike.additionalCosts.length === 0) ? (
+              <div className="p-4 bg-slate-950/60 rounded-xl border border-dashed border-slate-800 text-center text-xs text-slate-500">
+                কোনো অতিরিক্ত খরচ এখনো যুক্ত করা হয়নি। সার্ভিসিং, ওয়াশ, পার্টস ইত্যাদি খরচ যোগ করতে 
+                <button 
+                  type="button" 
+                  onClick={() => onNavigateToCost?.()} 
+                  className="text-cyan-400 font-semibold underline ml-1 hover:text-cyan-300 cursor-pointer"
+                >
+                  Add Additional Cost এ ক্লিক করুন
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                {bike.additionalCosts.map((c) => (
+                  <div key={c.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          c.category === 'Service' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                          c.category === 'Wash' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' :
+                          c.category === 'Polish' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                          c.category === 'Parts' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                          c.category === 'Repair' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                          'bg-slate-800 text-slate-300'
+                        }`}>
+                          {c.category}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">{c.date}</span>
+                      </div>
+                      <div className="text-slate-200 mt-1 font-medium truncate max-w-[160px]">{c.description}</div>
+                    </div>
+                    <div className="font-mono font-bold text-cyan-300 text-sm">
+                      +{formatBDT(c.amount)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* BOTTOM ACTION BAR (Admin vs Customer) */}
+        {isAdmin ? (
+          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border-2 border-slate-800 hover:border-cyan-500/40 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-lg font-bold text-white">
+                  {isSold ? 'Sales Record' : 'Sale This Bike (বাইক বিক্রয় করুন)'}
+                </h2>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                {isSold 
+                  ? 'This bike is currently marked as Sold Out in the showroom inventory.' 
+                  : 'Click the button to record sale invoice and mark this bike as Sold.'}
+              </p>
+            </div>
+
+            {isSold ? (
+              <div className="flex items-center gap-3">
+                <div className="bg-red-600 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl border border-red-400 uppercase tracking-wider shadow">
+                  Sold Out
+                </div>
+                <button
+                  onClick={onNavigateToSales}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-medium text-xs rounded-xl transition-colors border border-slate-700"
+                >
+                  View Sales Invoices →
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setSalePrice(effectiveAskingPrice);
+                  setIsSaleModalOpen(true);
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 transform active:scale-95"
+              >
+                <DollarSign className="w-4 h-4" />
+                <span>Sale This Bike (বাইক বিক্রয় করুন)</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          /* Customer Bottom Action Bar */
+          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border-2 border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-lg font-bold text-white">
+                  {isSold ? 'Sold Out' : 'Interested in this Bike? (টেস্ট রাইড ও বুকিং)'}
+                </h2>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                {isSold 
+                  ? 'এই বাইকটি ইতিমধ্যে বিক্রয় হয়ে গেছে। আমাদের কালেকশনের অন্যান্য বাইক দেখতে পারেন।' 
+                  : 'বাইকটি সামনাসামনি দেখতে বা টেস্ট রাইডের জন্য শোরুমের সাথে যোগাযোগ করুন।'}
+              </p>
+            </div>
+
+            {!isSold && (
+              <div className="flex items-center gap-2.5">
+                <a
+                  href="tel:+8801739840603"
+                  className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Call Showroom</span>
+                </a>
+                <a
+                  href="https://wa.me/8801739840603"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>WhatsApp</span>
+                </a>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* SALE MODAL - Opens ONLY when user clicks "Sale This Bike" */}

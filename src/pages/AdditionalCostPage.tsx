@@ -140,10 +140,10 @@ export const AdditionalCostPage: React.FC<AdditionalCostPageProps> = ({
                   src={logoUrl!} 
                   alt={showroomName} 
                   onError={() => setLogoError(true)} 
-                  className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl object-cover border-2 border-cyan-500/50 shadow-md shadow-cyan-500/20 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 
+                  className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-cyan-500/60 shadow-md shadow-cyan-500/25 group-hover:scale-105 group-hover:border-cyan-400 transition-all shrink-0 bg-slate-900" 
                 />
               ) : (
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-sm sm:text-base shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform shrink-0">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-slate-950 font-black text-sm sm:text-base shadow-md shadow-cyan-500/25 group-hover:scale-105 transition-transform shrink-0 border-2 border-cyan-500/40">
                   M
                 </div>
               )}
