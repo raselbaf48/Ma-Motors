@@ -17,6 +17,21 @@ import {
   DEFAULT_SETTINGS
 } from './data/mockBikes';
 import { findModelSpec, getModelDefaultImage, getModelDefaultBrakingSystem } from './data/bangladeshBikes';
+import { 
+  supabase,
+  deserializeBikeFromSupabase,
+  serializeBikeToSupabase,
+  deserializePurchaseFromSupabase,
+  serializePurchaseToSupabase,
+  deserializeSaleFromSupabase,
+  serializeSaleToSupabase,
+  deserializeInquiryFromSupabase,
+  serializeInquiryToSupabase,
+  deserializeSellRequestFromSupabase,
+  serializeSellRequestToSupabase,
+  deserializeSettingsFromSupabase,
+  serializeSettingsToSupabase
+} from './utils/supabase';
 
 import { AppSidebar } from './components/layout/AppSidebar';
 import { AppTopBar } from './components/layout/AppTopBar';
@@ -189,6 +204,96 @@ export default function App() {
     }
   }, [settings]);
 
+  // Initial Supabase Data Fetch & Realtime Listeners
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchSupabaseData = async () => {
+      try {
+        const [bRes, pRes, sRes, inqRes, srRes, setRes] = await Promise.all([
+          supabase.from('bikes').select('*').order('created_at', { ascending: false }),
+          supabase.from('purchases').select('*').order('created_at', { ascending: false }),
+          supabase.from('sales').select('*').order('created_at', { ascending: false }),
+          supabase.from('inquiries').select('*').order('created_at', { ascending: false }),
+          supabase.from('sell_requests').select('*').order('created_at', { ascending: false }),
+          supabase.from('settings').select('*').eq('id', 'main_settings').single()
+        ]);
+
+        if (!isMounted) return;
+
+        if (bRes.data && bRes.data.length > 0) {
+          const parsedBikes = bRes.data.map(deserializeBikeFromSupabase);
+          setBikes(parsedBikes);
+          setSelectedBike((prev) => prev ? (parsedBikes.find(b => b.id === prev.id) || parsedBikes[0]) : parsedBikes[0]);
+        }
+        if (pRes.data && pRes.data.length > 0) {
+          setPurchases(pRes.data.map(deserializePurchaseFromSupabase));
+        }
+        if (sRes.data && sRes.data.length > 0) {
+          setSales(sRes.data.map(deserializeSaleFromSupabase));
+        }
+        if (inqRes.data && inqRes.data.length > 0) {
+          setInquiries(inqRes.data.map(deserializeInquiryFromSupabase));
+        }
+        if (srRes.data && srRes.data.length > 0) {
+          setSellRequests(srRes.data.map(deserializeSellRequestFromSupabase));
+        }
+        if (setRes.data) {
+          setSettings(deserializeSettingsFromSupabase(setRes.data));
+        }
+      } catch (err) {
+        console.warn('Supabase initial fetch, continuing with cache:', err);
+      }
+    };
+
+    fetchSupabaseData();
+
+    // Supabase Real-time Changes Subscription
+    const channel = supabase
+      .channel('mamotors-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bikes' }, () => {
+        supabase.from('bikes').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+          if (data && data.length > 0 && isMounted) {
+            setBikes(data.map(deserializeBikeFromSupabase));
+          }
+        });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, () => {
+        supabase.from('purchases').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+          if (data && isMounted) {
+            setPurchases(data.map(deserializePurchaseFromSupabase));
+          }
+        });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => {
+        supabase.from('sales').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+          if (data && isMounted) {
+            setSales(data.map(deserializeSaleFromSupabase));
+          }
+        });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inquiries' }, () => {
+        supabase.from('inquiries').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+          if (data && isMounted) {
+            setInquiries(data.map(deserializeInquiryFromSupabase));
+          }
+        });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sell_requests' }, () => {
+        supabase.from('sell_requests').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+          if (data && isMounted) {
+            setSellRequests(data.map(deserializeSellRequestFromSupabase));
+          }
+        });
+      })
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Selected bike for detailed technical view
   const [selectedBike, setSelectedBike] = useState<Bike | null>(INITIAL_BIKES[0]);
 
@@ -217,25 +322,56 @@ export default function App() {
     setCurrentPage('details');
   };
 
-  // Stock operations
-  const handleAddBikeToStock = (newBike: Bike) => {
+  // Stock operations (Synced with Supabase Cloud)
+  const handleAddBikeToStock = async (newBike: Bike) => {
     setBikes((prev) => [newBike, ...prev]);
+    try {
+      const payload = serializeBikeToSupabase(newBike);
+      const { data, error } = await supabase.from('bikes').insert([payload]).select();
+      if (data && data[0]) {
+        const cloudBike = deserializeBikeFromSupabase(data[0]);
+        setBikes((prev) => [cloudBike, ...prev.filter((b) => b.id !== newBike.id)]);
+      }
+      if (error) console.warn('Supabase add bike error:', error.message);
+    } catch (err) {
+      console.warn('Supabase add bike exception:', err);
+    }
   };
 
-  const handleUpdateBike = (updatedBike: Bike) => {
+  const handleUpdateBike = async (updatedBike: Bike) => {
     setBikes((prev) => prev.map((b) => (b.id === updatedBike.id ? updatedBike : b)));
     if (selectedBike?.id === updatedBike.id) {
       setSelectedBike(updatedBike);
     }
+    try {
+      const payload = serializeBikeToSupabase(updatedBike);
+      const { error } = await supabase.from('bikes').update(payload).eq('id', updatedBike.id);
+      if (error) console.warn('Supabase update bike error:', error.message);
+    } catch (err) {
+      console.warn('Supabase update bike exception:', err);
+    }
   };
 
-  const handleDeleteBike = (bikeId: string) => {
+  const handleDeleteBike = async (bikeId: string) => {
     setBikes((prev) => prev.filter((b) => b.id !== bikeId));
+    try {
+      const { error } = await supabase.from('bikes').delete().eq('id', bikeId);
+      if (error) console.warn('Supabase delete bike error:', error.message);
+    } catch (err) {
+      console.warn('Supabase delete bike exception:', err);
+    }
   };
 
-  // Purchase operations (Option 3)
-  const handleAddPurchase = (record: PurchaseRecord, alsoAddToStock: boolean) => {
+  // Purchase operations (Option 3 - Synced with Supabase Cloud)
+  const handleAddPurchase = async (record: PurchaseRecord, alsoAddToStock: boolean) => {
     setPurchases((prev) => [record, ...prev]);
+    try {
+      const payload = serializePurchaseToSupabase(record);
+      const { error } = await supabase.from('purchases').insert([payload]);
+      if (error) console.warn('Supabase add purchase error:', error.message);
+    } catch (err) {
+      console.warn('Supabase add purchase exception:', err);
+    }
 
     if (alsoAddToStock) {
       const spec = findModelSpec(record.brand, record.model);
@@ -311,48 +447,90 @@ export default function App() {
           ownershipTransferGuaranteed: true
         }
       };
-      setBikes((prev) => [newBike, ...prev]);
+      handleAddBikeToStock(newBike);
     }
   };
 
-  const handleDeletePurchase = (id: string) => {
+  const handleDeletePurchase = async (id: string) => {
     setPurchases((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const { error } = await supabase.from('purchases').delete().eq('id', id);
+      if (error) console.warn('Supabase delete purchase error:', error.message);
+    } catch (err) {
+      console.warn('Supabase delete purchase exception:', err);
+    }
   };
 
-  // Sell operations (Option 4)
-  const handleAddSale = (sale: SaleRecord) => {
+  // Sell operations (Option 4 - Synced with Supabase Cloud)
+  const handleAddSale = async (sale: SaleRecord) => {
     setSales((prev) => [sale, ...prev]);
     // Automatically mark the sold bike as 'Sold' in stock
     setBikes((prev) =>
       prev.map((b) => (b.id === sale.bikeId ? { ...b, status: 'Sold', inStock: false } : b))
     );
+    try {
+      const payload = serializeSaleToSupabase(sale);
+      const { error } = await supabase.from('sales').insert([payload]);
+      if (error) console.warn('Supabase add sale error:', error.message);
+      if (sale.bikeId) {
+        await supabase.from('bikes').update({ status: 'sold' }).eq('id', sale.bikeId);
+      }
+    } catch (err) {
+      console.warn('Supabase add sale exception:', err);
+    }
   };
 
-  const handleUpdateSellRequestStatus = (id: string, status: SellBikeSubmission['status']) => {
+  const handleUpdateSellRequestStatus = async (id: string, status: SellBikeSubmission['status']) => {
     setSellRequests((prev) =>
       prev.map((req) => (req.id === id ? { ...req, status } : req))
     );
+    try {
+      const { error } = await supabase.from('sell_requests').update({ status: status.toLowerCase() }).eq('id', id);
+      if (error) console.warn('Supabase update sell request error:', error.message);
+    } catch (err) {
+      console.warn('Supabase update sell request exception:', err);
+    }
   };
 
-  // Contact operations (Option 5)
-  const handleUpdateInquiryStatus = (id: string, status: CustomerInquiry['status']) => {
+  // Contact operations (Option 5 - Synced with Supabase Cloud)
+  const handleUpdateInquiryStatus = async (id: string, status: CustomerInquiry['status']) => {
     setInquiries((prev) =>
       prev.map((inq) => (inq.id === id ? { ...inq, status } : inq))
     );
+    try {
+      const { error } = await supabase.from('inquiries').update({ status: status.toLowerCase() }).eq('id', id);
+      if (error) console.warn('Supabase update inquiry error:', error.message);
+    } catch (err) {
+      console.warn('Supabase update inquiry exception:', err);
+    }
   };
 
-  const handleAddInquiry = (inquiryData: Omit<CustomerInquiry, 'id' | 'createdAt'>) => {
+  const handleAddInquiry = async (inquiryData: Omit<CustomerInquiry, 'id' | 'createdAt'>) => {
     const newInquiry: CustomerInquiry = {
       ...inquiryData,
       id: `inq-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
     setInquiries((prev) => [newInquiry, ...prev]);
+    try {
+      const payload = serializeInquiryToSupabase(newInquiry);
+      const { error } = await supabase.from('inquiries').insert([payload]);
+      if (error) console.warn('Supabase add inquiry error:', error.message);
+    } catch (err) {
+      console.warn('Supabase add inquiry exception:', err);
+    }
   };
 
-  // Settings operations (Option 6)
-  const handleUpdateSettings = (newSettings: ShowroomSettings) => {
+  // Settings operations (Option 6 - Synced with Supabase Cloud)
+  const handleUpdateSettings = async (newSettings: ShowroomSettings) => {
     setSettings(newSettings);
+    try {
+      const payload = serializeSettingsToSupabase(newSettings);
+      const { error } = await supabase.from('settings').upsert(payload);
+      if (error) console.warn('Supabase update settings error:', error.message);
+    } catch (err) {
+      console.warn('Supabase update settings exception:', err);
+    }
   };
 
   const handleResetDemoData = () => {

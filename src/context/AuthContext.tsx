@@ -1,20 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
-  auth, 
-  googleProvider, 
+  supabase, 
   determineUserRole, 
   MASTER_ADMIN_EMAIL, 
   AppUserProfile, 
   UserRole 
-} from '../utils/firebase';
-import { 
-  signInWithPopup, 
-  signInWithRedirect, 
-  getRedirectResult, 
-  signOut as fbSignOut, 
-  onAuthStateChanged,
-  User as FirebaseUser
-} from 'firebase/auth';
+} from '../utils/supabase';
 
 export const DEFAULT_ADMIN_PIN = '1111';
 
@@ -32,7 +23,7 @@ interface AuthContextType {
   isPinModalOpen: boolean;
   openPinModal: (callback?: () => void) => void;
   closePinModal: () => void;
-  // Fallback Google Auth
+  // Supabase Auth
   signInWithGmail: () => Promise<void>;
   signOut: () => Promise<void>;
   switchAccount: () => Promise<void>;
@@ -147,41 +138,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Supabase Auth State Listener
   useEffect(() => {
-    // Process redirect result if any
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result && result.user) {
-          const fbUser = result.user;
-          const role = determineUserRole(fbUser.email);
-          const profile: AppUserProfile = {
-            uid: fbUser.uid,
-            email: fbUser.email || '',
-            displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
-            photoURL: fbUser.photoURL || undefined,
-            role,
-            isMasterAdmin: role === 'admin'
-          };
-          setUser(profile);
-          try {
-            localStorage.setItem('mamotors_auth_user', JSON.stringify(profile));
-          } catch {
-            // ignore
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn('Redirect result check:', err?.message || err);
-      });
-
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        const role = determineUserRole(firebaseUser.email);
+    // 1. Check existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const suUser = session.user;
+        const role = determineUserRole(suUser.email);
         const profile: AppUserProfile = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-          photoURL: firebaseUser.photoURL || undefined,
+          uid: suUser.id,
+          email: suUser.email || '',
+          displayName: suUser.user_metadata?.full_name || suUser.email?.split('@')[0] || 'User',
+          photoURL: suUser.user_metadata?.avatar_url || undefined,
           role,
           isMasterAdmin: role === 'admin'
         };
@@ -192,62 +160,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // ignore
         }
       }
+    }).catch(err => {
+      console.warn('Supabase getSession error:', err);
     });
 
-    return () => unsubscribe();
+    // 2. Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const suUser = session.user;
+        const role = determineUserRole(suUser.email);
+        const profile: AppUserProfile = {
+          uid: suUser.id,
+          email: suUser.email || '',
+          displayName: suUser.user_metadata?.full_name || suUser.email?.split('@')[0] || 'User',
+          photoURL: suUser.user_metadata?.avatar_url || undefined,
+          role,
+          isMasterAdmin: role === 'admin'
+        };
+        setUser(profile);
+        try {
+          localStorage.setItem('mamotors_auth_user', JSON.stringify(profile));
+        } catch {
+          // ignore
+        }
+      } else {
+        setUser(null);
+        try {
+          localStorage.removeItem('mamotors_auth_user');
+        } catch {
+          // ignore
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signInWithGmail = async (): Promise<void> => {
     setError(null);
     setLoading(true);
-    googleProvider.setCustomParameters({
-      prompt: 'select_account'
-    });
-
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const inIframe = window.self !== window.top;
-
-    if (isMobile && !inIframe) {
-      try {
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      } catch (redirectErr: any) {
-        console.warn('Redirect call failed, falling back to popup:', redirectErr);
-      }
-    }
-
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      if (result && result.user) {
-        const fbUser = result.user;
-        const role = determineUserRole(fbUser.email);
-        const profile: AppUserProfile = {
-          uid: fbUser.uid,
-          email: fbUser.email || '',
-          displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
-          photoURL: fbUser.photoURL || undefined,
-          role,
-          isMasterAdmin: role === 'admin'
-        };
-        setUser(profile);
-        localStorage.setItem('mamotors_auth_user', JSON.stringify(profile));
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (signInError) {
+        setError(signInError.message);
       }
     } catch (err: any) {
-      if (
-        err?.code === 'auth/popup-blocked' || 
-        err?.code === 'auth/network-request-failed' ||
-        err?.code === 'auth/cancelled-popup-request'
-      ) {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        } catch (rErr: any) {
-          console.error('Redirect also failed:', rErr);
-          setError('Google Sign-in could not be completed. Please allow popups or try again.');
-        }
-      } else if (err?.code !== 'auth/popup-closed-by-user') {
-        setError(err.message || 'Google Login error');
-      }
+      setError(err?.message || 'Google Sign-in error with Supabase');
     } finally {
       setLoading(false);
     }
@@ -255,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchAccount = async () => {
     try {
-      await fbSignOut(auth);
+      await supabase.auth.signOut();
     } catch {
       // ignore
     }
@@ -271,7 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     setLoading(true);
     try {
-      await fbSignOut(auth);
+      await supabase.auth.signOut();
     } catch {
       // ignore
     } finally {

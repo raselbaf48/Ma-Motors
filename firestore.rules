@@ -5,7 +5,10 @@ service cloud.firestore {
       return request.auth != null;
     }
     function isMasterAdmin() {
-      return isAuthenticated() && request.auth.token.email.lower() == 'raselbaf48@gmail.com';
+      return isAuthenticated() && (
+        request.auth.token.email.lower() == 'raselbaf48@gmail.com' ||
+        request.auth.token.email.lower() == 'sarmin474455@gmail.com'
+      );
     }
 
     match /users/{userId} {

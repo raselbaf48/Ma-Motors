@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lock, Crown, ShieldAlert, ArrowLeft } from 'lucide-react';
-import { MASTER_ADMIN_EMAIL } from '../../utils/firebase';
+import { MASTER_ADMIN_EMAIL } from '../../utils/supabase';
 
 interface AdminRestrictedNoticeProps {
   pageTitle: string;

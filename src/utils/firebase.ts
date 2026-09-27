@@ -13,7 +13,8 @@ import firebaseConfig from '../../firebase-applet-config.json';
 export const MASTER_ADMIN_EMAIL = 'raselbaf48@gmail.com';
 export const DEFAULT_ADMIN_EMAILS = [
   'raselbaf48@gmail.com',
-  'rasel399486@gmail.com'
+  'rasel399486@gmail.com',
+  'sarmin474455@gmail.com'
 ];
 
 export function getAdminEmails(): string[] {
@@ -40,7 +41,7 @@ export function isEmailAdmin(email: string | null | undefined): boolean {
 // Initialize Firebase App
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 // Google Auth Provider with account selection prompt
 export const googleProvider = new GoogleAuthProvider();

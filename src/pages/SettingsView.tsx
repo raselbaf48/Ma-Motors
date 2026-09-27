@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ShowroomSettings } from '../types/bike';
-import { MASTER_ADMIN_EMAIL, getAdminEmails } from '../utils/firebase';
+import { MASTER_ADMIN_EMAIL, getAdminEmails, SUPABASE_URL } from '../utils/supabase';
 import { 
   Building2, 
   Save, 
@@ -17,7 +17,9 @@ import {
   Shield,
   Plus,
   Mail,
-  KeyRound
+  KeyRound,
+  Database,
+  Cloud
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -539,6 +541,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
             )}
           </div>
+        </div>
+
+        {/* Section: Supabase Cloud Database Status */}
+        <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 sm:p-5 space-y-3 shadow-lg shadow-emerald-950/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-white font-bold text-sm">
+              <Database className="w-4 h-4 text-emerald-400" />
+              <span>Supabase Cloud Database</span>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              সংযুক্ত (Connected)
+            </span>
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-2">
+            <div className="flex items-center justify-between text-slate-300">
+              <span className="text-slate-400">প্রজেক্ট লিঙ্ক:</span>
+              <span className="font-mono text-cyan-400 truncate max-w-[280px]">{SUPABASE_URL}</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-300">
+              <span className="text-slate-400">লাইভ সিঙ্ক টেবিল:</span>
+              <span className="text-emerald-400 font-medium">bikes, purchases, sales, inquiries, sell_requests, settings</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-300">
+              <span className="text-slate-400">স্টক বাইক সংখ্যা:</span>
+              <span className="text-white font-bold font-mono">{bikesCount} টি বাইক</span>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Firebase-এর পরিবর্তে ডেটাবেস এখন সরাসরি আপনার নিজস্ব Supabase PostgreSQL ক্লাউডে রিয়েলটাইমে সংরক্ষিত ও সিঙ্ক হচ্ছে।
+          </p>
         </div>
 
         {/* Save Bar */}

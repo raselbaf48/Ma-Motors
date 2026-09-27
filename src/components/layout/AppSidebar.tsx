@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ActivePage } from '../../types/bike';
 import { useAuth } from '../../context/AuthContext';
-import { MASTER_ADMIN_EMAIL } from '../../utils/firebase';
+import { MASTER_ADMIN_EMAIL } from '../../utils/supabase';
 import { 
   LayoutDashboard, 
   Bike, 
