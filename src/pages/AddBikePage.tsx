@@ -3,6 +3,7 @@ import { Bike } from '../types/bike';
 import { formatBDT } from '../utils/formatters';
 import { SearchableSelect } from '../components/common/SearchableSelect';
 import { BD_BRANDS, BD_MODEL_DATABASE, BDModelSpec, getModelDefaultImage, getModelDefaultBrakingSystem, BIKE_PICS } from '../data/bangladeshBikes';
+import { autoDetectBrakingSystem, detectFuelSupply } from '../utils/motorcycleDatabase';
 export type { BDModelSpec };
 export { BD_BRANDS, BD_MODEL_DATABASE };
 import { 
@@ -26,7 +27,8 @@ import {
   Plus,
   ImageIcon,
   ShieldCheck,
-  Camera
+  Camera,
+  Lock
 } from 'lucide-react';
 
 interface AddBikePageProps {
@@ -205,12 +207,37 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
   const [sellerNotes, setSellerNotes] = useState('');
   const [sellerError, setSellerError] = useState(false);
 
+  // On-Test explicit mode (when checked, Reg Year is completely hidden and Reg Number is ON TEST)
+  const [isOnTestMode, setIsOnTestMode] = useState(false);
+
   // Find active BRTA office object
   const currentBrta = BRTA_OFFICES.find((b) => b.id === selectedBrtaId);
-  const isRegistered = Boolean(selectedBrtaId && selectedBrtaId.trim() !== '');
+  const isRegistered = !isOnTestMode && Boolean(selectedBrtaId && selectedBrtaId.trim() !== '');
+  const isBikeOnTest = isOnTestMode || !isRegistered;
+
+  // Year logic: 2010 to running year (2026)
+  const CURRENT_YEAR = new Date().getFullYear();
+  const ALL_MFG_YEARS = Array.from({ length: CURRENT_YEAR - 2010 + 1 }, (_, i) => CURRENT_YEAR - i);
+  const numMfg = typeof mfgYear === 'number' ? mfgYear : 2023;
+  const availableRegYears = ALL_MFG_YEARS.filter((yr) => yr >= numMfg).sort((a, b) => a - b);
+
+  const handleMfgYearChange = (yr: number) => {
+    setMfgYear(yr);
+    if (typeof regYear === 'number' && regYear < yr) {
+      setRegYear(yr);
+    }
+  };
+
+  // Price logic: Asking price is automatically 20% higher than Buying price
+  const handleBuyingPriceChange = (val: number | '') => {
+    setBuyingPrice(val);
+    if (typeof val === 'number' && val > 0) {
+      setAskingPrice(Math.round(val * 1.20));
+    }
+  };
 
   // Auto calculate BRTA registration number
-  // If NO BRTA circle is selected, Registration No is literally "ON TEST"
+  // If NO BRTA circle is selected or On-Test is active, Registration No is literally "ON TEST"
   const prefix = currentBrta ? currentBrta.seriesPrefix : '';
   const alpha = regAlphabet || (typeof cc === 'number' && cc <= 125 ? 'HA' : 'LA');
   const displaySerial = regSerial.trim() || '55';
@@ -775,7 +802,18 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                       type="text"
                       required
                       value={customModelText}
-                      onChange={(e) => setCustomModelText(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomModelText(val);
+                        const autoBrake = autoDetectBrakingSystem(brand, val);
+                        setBrakingSystem(autoBrake.brakingSystem);
+                        const autoFuel = detectFuelSupply(brand, val);
+                        setFuelSupply(autoFuel);
+                        if (autoBrake.cc) {
+                          setCustomCcVal(autoBrake.cc);
+                          setCc(autoBrake.cc);
+                        }
+                      }}
                       placeholder="e.g. FZ-S V3 Dark Knight"
                       className="w-full bg-slate-950 border border-cyan-500/60 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400 transition-colors text-xs"
                     />
@@ -826,11 +864,14 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                       </div>
                     ) : (
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         required
                         value={customCcVal === '' ? '' : customCcVal}
                         onChange={(e) => {
-                          const val = e.target.value === '' ? '' : Number(e.target.value);
+                          const digits = e.target.value.replace(/\D/g, '');
+                          const val = digits === '' ? '' : Number(digits);
                           setCustomCcVal(val);
                           setCc(val);
                           if (typeof val === 'number') {
@@ -842,150 +883,103 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                       />
                     )}
                     <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
-                      {isCustomModel ? 'কাস্টম সিসি লিখুন' : 'মডেল অনুযায়ী সিসি স্বয়ংক্রিয় লকড'}
+                      {isCustomModel ? 'কাস্টম সিসি লিখুন (শুধুমাত্র সংখ্যা)' : 'মডেল অনুযায়ী সিসি স্বয়ংক্রিয় লকড'}
                     </span>
                   </div>
 
-                  {/* Mileage */}
+                  {/* Mileage - Numeric only */}
                   <div>
                     <label className="text-slate-400 block mb-1 font-medium">Mileage (রানিং কিমি):</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       required
                       value={mileageKm === '' ? '' : mileageKm}
-                      onChange={(e) => setMileageKm(e.target.value === '' ? '' : Number(e.target.value))}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '');
+                        setMileageKm(digits === '' ? '' : Number(digits));
+                      }}
                       placeholder="e.g. 12000"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
                     />
                     <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
-                      {typeof mileageKm === 'number' ? `রান: ${mileageKm.toLocaleString()} কিমি` : 'রানিং কিমি লিখুন'}
+                      {typeof mileageKm === 'number' ? `রান: ${mileageKm.toLocaleString()} কিমি` : 'রানিং কিমি লিখুন (শুধুমাত্র সংখ্যা)'}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Fuel Supply Option: Fi / Carb (Auto fill with model) */}
+              {/* Fuel Supply: Strictly Auto-Calculated from Model, Manual change disabled */}
               <div className="pt-1">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-slate-300 font-semibold flex items-center gap-1.5 text-xs">
                     <Zap className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Engine Fuel Supply (ফুয়েল সিস্টেম): Fi / Carb</span>
-                    <span className="text-rose-400 font-bold">*</span>
                   </label>
-                  {fuelSupply && (
-                    <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">
-                      <Sparkles className="w-3 h-3" />
-                      {model && !isCustomModel ? `Auto-filled: ${fuelSupply}` : 'Selected'}
-                    </span>
-                  )}
+                  <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                    <Lock className="w-3 h-3 text-emerald-400" />
+                    <span>মডেল অনুযায়ী অটো-সিলেক্টেড (লক করা)</span>
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {/* FI Option Button */}
-                  <button
-                    type="button"
-                    onClick={() => setFuelSupply('FI')}
-                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
+                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold tracking-tight border ${
                       fuelSupply === 'FI'
-                        ? 'bg-gradient-to-br from-cyan-500/25 to-cyan-500/5 border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/40 font-bold shadow-md shadow-cyan-500/10'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-black tracking-wide font-mono">FI</span>
-                      {fuelSupply === 'FI' && <Check className="w-3.5 h-3.5 text-cyan-400" />}
-                    </div>
-                    <span className="text-[10px] text-slate-400 mt-0.5 font-medium">Fuel Injection (ইনজেকশন)</span>
-                  </button>
-
-                  {/* Carburetor Option Button */}
-                  <button
-                    type="button"
-                    onClick={() => setFuelSupply('Carburetor')}
-                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
-                      fuelSupply === 'Carburetor'
-                        ? 'bg-gradient-to-br from-amber-500/25 to-amber-500/5 border-amber-400 text-amber-300 ring-2 ring-amber-500/40 font-bold shadow-md shadow-amber-500/10'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-black tracking-wide font-mono">Carb</span>
-                      {fuelSupply === 'Carburetor' && <Check className="w-3.5 h-3.5 text-amber-400" />}
-                    </div>
-                    <span className="text-[10px] text-slate-400 mt-0.5 font-medium">Carburetor (কার্বুরেটর)</span>
-                  </button>
-
-                  {/* Electric Option Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFuelSupply('Electric');
-                      setFuelType('Electric');
-                    }}
-                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer col-span-2 sm:col-span-1 ${
-                      fuelSupply === 'Electric'
-                        ? 'bg-gradient-to-br from-emerald-500/25 to-emerald-500/5 border-emerald-400 text-emerald-300 ring-2 ring-emerald-500/40 font-bold shadow-md shadow-emerald-500/10'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-black tracking-wide font-mono">Electric</span>
-                      {fuelSupply === 'Electric' && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                    </div>
-                    <span className="text-[10px] text-slate-400 mt-0.5 font-medium">Battery EV (ব্যাটারি)</span>
-                  </button>
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                        : fuelSupply === 'Electric'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    }`}>
+                      {fuelSupply || 'FI'}
+                    </span>
+                    <span className="text-xs text-slate-300 font-medium">
+                      {fuelSupply === 'FI'
+                        ? 'Fuel Injection (ইলেকট্রনিক ফুয়েল ইনজেকশন)'
+                        : fuelSupply === 'Electric'
+                        ? 'Battery EV (বৈদ্যুতিক মোটর)'
+                        : 'Carburetor (কার্বুরেটর সিস্টেম)'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">ম্যানুয়াল পরিবর্তন সম্ভব নয়</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1 font-mono">
-                  {model ? `✓ মডেল অনুযায়ী স্বয়ংক্রিয়ভাবে "${fuelSupply || 'FI'}" সিলেক্ট হয়েছে। প্রয়োজনে পরিবর্তন করতে পারেন।` : 'মডেল সিলেক্ট করলে Fi / Carb অটো ফিল হবে।'}
-                </p>
               </div>
 
-              {/* Braking System Selector (Dual Channel ABS, Single Channel ABS, CBS, Dual Disc, Disc + Drum, Drum) */}
+              {/* Braking System: Manual selection disabled (Strictly Auto-Calculated from Model) */}
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-slate-300 font-semibold flex items-center gap-1.5 text-xs">
                     <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Braking System (বাইকের ব্রেকিং সিস্টেম)</span>
-                    <span className="text-rose-400 font-bold">*</span>
                   </label>
-                  {brakingSystem && (
-                    <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">
-                      <Sparkles className="w-3 h-3" />
-                      {model && !isCustomModel ? `Auto-filled: ${brakingSystem}` : 'Selected'}
-                    </span>
-                  )}
+                  <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                    <Lock className="w-3 h-3 text-emerald-400" />
+                    <span>মডেল অনুযায়ী অটো-সিলেক্টেড (লক করা)</span>
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {[
-                    { id: 'Dual Channel ABS', label: 'Dual Channel ABS', desc: 'সামনে ও পেছনে দুই চাকাতেই ABS' },
-                    { id: 'Single Channel ABS', label: 'Single Channel ABS', desc: 'সামনে ABS + পেছনে ডিস্ক/ড্রাম' },
-                    { id: 'CBS', label: 'CBS (Combi Brake)', desc: 'কম্বাইন্ড ব্রেকিং সিস্টেম' },
-                    { id: 'Dual Disc', label: 'Dual Disc', desc: 'সামনে ও পেছনে দুই চাকাতেই ডিস্ক' },
-                    { id: 'Front Disc / Rear Drum', label: 'Disc + Drum', desc: 'সামনে ডিস্ক, পেছনে ড্রাম' },
-                    { id: 'Drum Brakes', label: 'Drum Brakes', desc: 'দুই চাকাতেই ড্রাম ব্রেক' }
-                  ].map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setBrakingSystem(option.id)}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                        brakingSystem === option.id
-                          ? 'bg-gradient-to-br from-cyan-500/25 to-cyan-500/5 border-cyan-400 text-white ring-2 ring-cyan-500/40 font-bold shadow-md shadow-cyan-500/10'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold font-mono tracking-tight">{option.label}</span>
-                        {brakingSystem === option.id && <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-normal mt-0.5 leading-tight">{option.desc}</div>
-                    </button>
-                  ))}
+                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="px-2.5 py-1 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-mono font-bold tracking-tight">
+                      {brakingSystem || 'Single Channel ABS'}
+                    </span>
+                    <span className="text-xs text-slate-300 font-medium">
+                      {brakingSystem === 'Dual Channel ABS'
+                        ? 'সামনে ও পেছনে দুই চাকাতেই ABS'
+                        : brakingSystem === 'Single Channel ABS'
+                        ? 'সামনে ABS + পেছনে ডিস্ক/ড্রাম'
+                        : brakingSystem === 'CBS'
+                        ? 'কম্বাইন্ড ব্রেকিং সিস্টেম (CBS)'
+                        : brakingSystem === 'Dual Disc'
+                        ? 'দুই চাকাতেই ডিস্ক (Non-ABS)'
+                        : brakingSystem === 'Drum Brakes'
+                        ? 'দুই চাকাতেই ড্রাম ব্রেক'
+                        : 'সামনে ডিস্ক, পেছনে ড্রাম'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">ম্যানুয়াল পরিবর্তন সম্ভব নয়</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1 font-mono">
-                  {model ? `✓ মডেল অনুযায়ী স্বয়ংক্রিয়ভাবে "${brakingSystem}" সিলেক্ট হয়েছে। যেকোনোটিতে ক্লিক করে পরিবর্তন করতে পারেন।` : 'মডেল অনুযায়ী ব্রেকিং সিস্টেম অটো ফিল হবে।'}
-                </p>
               </div>
 
               {/* Fuel Type and Color */}
@@ -1022,12 +1016,15 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1 font-medium">Color (রং)</label>
+                  <label className="text-slate-400 block mb-1 font-medium">Color (রং - শুধুমাত্র টেক্সট)</label>
                   <input
                     type="text"
                     required
                     value={color}
-                    onChange={(e) => setColor(e.target.value)}
+                    onChange={(e) => {
+                      const textOnly = e.target.value.replace(/[0-9০-৯]/g, '');
+                      setColor(textOnly);
+                    }}
                     placeholder="e.g. Cyan / Black"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-cyan-500 transition-colors"
                   />
@@ -1042,6 +1039,36 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                 <h3 className="text-sm font-bold text-white font-display">
                   3. Papers & BRTA Documents (কাগজপত্র ও বিআরটিএ)
                 </h3>
+              </div>
+
+              {/* 1-Click On-Test Checkbox */}
+              <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="add-bike-ontest-checkbox"
+                    checked={isOnTestMode}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setIsOnTestMode(checked);
+                      if (checked) {
+                        setSelectedBrtaId('');
+                        setRegYear('');
+                      } else {
+                        setSelectedBrtaId('mirpur');
+                      }
+                    }}
+                    className="w-4 h-4 rounded accent-cyan-500 cursor-pointer"
+                  />
+                  <label htmlFor="add-bike-ontest-checkbox" className="text-white font-semibold cursor-pointer select-none">
+                    Bike On-Test (আনরেজিস্টার্ড / রেজিস্ট্রেশন এখনো হয়নি)
+                  </label>
+                </div>
+                {isOnTestMode && (
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
+                    On-Test Active
+                  </span>
+                )}
               </div>
 
               {/* BRTA Circle Selection Dropdown with Searchable Modal */}
@@ -1126,9 +1153,14 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                     <div className="col-span-2">
                       <input
                         type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         maxLength={3}
                         value={regSerial}
-                        onChange={(e) => setRegSerial(e.target.value)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 3);
+                          setRegSerial(digits);
+                        }}
                         placeholder="55"
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-bold text-center focus:outline-none focus:border-cyan-500 placeholder-slate-600"
                       />
@@ -1138,9 +1170,14 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                     <div className="col-span-3">
                       <input
                         type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         maxLength={4}
                         value={regNumberCode}
-                        onChange={(e) => setRegNumberCode(e.target.value)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setRegNumberCode(digits);
+                        }}
                         placeholder="1234"
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-bold text-center focus:outline-none focus:border-cyan-500 placeholder-slate-600"
                       />
@@ -1312,30 +1349,43 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
               </div>
 
               {/* Manufacturing & Registration Years */}
-              <div className="grid grid-cols-3 gap-3 text-xs pt-1 border-t border-slate-800/80">
+              <div className={`grid ${isBikeOnTest ? 'grid-cols-2' : 'grid-cols-3'} gap-3 text-xs pt-1 border-t border-slate-800/80`}>
                 <div>
-                  <label className="text-slate-400 block mb-1 font-medium">Mfg Year</label>
-                  <input
-                    type="number"
+                  <label className="text-slate-400 block mb-1 font-semibold">MFG Year *</label>
+                  <select
                     required
                     value={mfgYear === '' ? '' : mfgYear}
-                    onChange={(e) => setMfgYear(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="e.g. 2023"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-cyan-500 transition-colors"
-                  />
+                    onChange={(e) => handleMfgYearChange(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono font-bold focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer"
+                  >
+                    <option value="" disabled className="text-slate-600">-- MFG Year সিলেক্ট করুন --</option>
+                    {ALL_MFG_YEARS.map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div>
-                  <label className="text-slate-400 block mb-1 font-medium">Reg Year</label>
-                  <input
-                    type="number"
-                    required
-                    value={regYear === '' ? '' : regYear}
-                    onChange={(e) => setRegYear(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="e.g. 2023"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-cyan-500 transition-colors"
-                  />
-                </div>
+                {/* Reg Year: Bike On-Test thakle Reg Year Show hbe na */}
+                {!isBikeOnTest ? (
+                  <div>
+                    <label className="text-slate-400 block mb-1 font-semibold">Reg Year *</label>
+                    <select
+                      required
+                      value={regYear === '' ? '' : regYear}
+                      onChange={(e) => setRegYear(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-cyan-400 font-mono font-bold focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer"
+                    >
+                      <option value="" disabled className="text-slate-600">-- Reg Year সিলেক্ট করুন --</option>
+                      {availableRegYears.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
 
                 <div>
                   <label className="text-slate-400 block mb-1 font-medium">Owner</label>
@@ -1363,15 +1413,19 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                 </h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="text-slate-400 block mb-1 font-medium">Buying Price (ক্রয়মূল্য ৳)</label>
+                  <label className="text-slate-400 block mb-1 font-medium">Buying Price (ক্রয়মূল্য ৳) *</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
-                    step={1000}
                     value={buyingPrice === '' ? '' : buyingPrice}
-                    onChange={(e) => setBuyingPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      handleBuyingPriceChange(digits === '' ? '' : Number(digits));
+                    }}
                     placeholder="e.g. 250000"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono font-bold focus:outline-none focus:border-cyan-500 transition-colors"
                   />
@@ -1381,15 +1435,24 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1 font-medium">Asking Price (বিক্রয়মূল্য ৳)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-400 font-medium">Asking Price (বিক্রয়মূল্য ৳) *</label>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      ক্রয়মূল্যের ২০% বেশি (+20% Auto)
+                    </span>
+                  </div>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
-                    step={1000}
                     value={askingPrice === '' ? '' : askingPrice}
-                    onChange={(e) => setAskingPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      setAskingPrice(digits === '' ? '' : Number(digits));
+                    }}
                     placeholder="e.g. 300000"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-emerald-400 font-mono font-bold focus:outline-none focus:border-cyan-500 transition-colors"
+                    className="w-full bg-slate-950 border border-emerald-500/40 rounded-xl p-2.5 text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-400 transition-colors"
                   />
                   <span className="text-[11px] text-emerald-500/80 font-mono mt-1 block">
                     {numAskingPrice > 0 ? formatBDT(numAskingPrice) : '৳ 0'}
@@ -1619,51 +1682,60 @@ export const AddBikePage: React.FC<AddBikePageProps> = ({
 
             <div className="space-y-3.5 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {/* Seller Name */}
+                {/* Seller Name: Text only (no numbers) */}
                 <div>
                   <label className="text-slate-300 block mb-1 font-semibold flex items-center justify-between">
-                    <span>Seller Name (বিক্রেতার নাম) <span className="text-rose-400 font-bold">*</span></span>
+                    <span>Seller Name (বিক্রেতার নাম - শুধুমাত্র টেক্সট) <span className="text-rose-400 font-bold">*</span></span>
                   </label>
                   <input
                     type="text"
                     required
                     value={sellerName}
                     onChange={(e) => {
-                      setSellerName(e.target.value);
-                      if (sellerError && e.target.value.trim()) setSellerError(false);
+                      const textOnly = e.target.value.replace(/[0-9০-৯]/g, '');
+                      setSellerName(textOnly);
+                      if (sellerError && textOnly.trim()) setSellerError(false);
                     }}
                     placeholder="e.g. মোঃ তারেক হোসেন"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
                   />
                 </div>
 
-                {/* Seller Phone */}
+                {/* Seller Phone: Numeric only (no letters) */}
                 <div>
                   <label className="text-slate-300 block mb-1 font-semibold flex items-center justify-between">
-                    <span>Mobile Phone (মোবাইল নম্বর) <span className="text-rose-400 font-bold">*</span></span>
+                    <span>Mobile Phone (মোবাইল নম্বর - শুধুমাত্র সংখ্যা) <span className="text-rose-400 font-bold">*</span></span>
                   </label>
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
                     value={sellerPhone}
                     onChange={(e) => {
-                      setSellerPhone(e.target.value);
-                      if (sellerError && e.target.value.trim()) setSellerError(false);
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
+                      setSellerPhone(digits);
+                      if (sellerError && digits.trim()) setSellerError(false);
                     }}
-                    placeholder="e.g. 01712-345678"
+                    placeholder="e.g. 01712345678"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
                   />
                 </div>
 
-                {/* Seller NID */}
+                {/* Seller NID: Numeric only (no letters) */}
                 <div>
                   <label className="text-slate-300 block mb-1 font-semibold">
-                    National ID / NID (জাতীয় পরিচয়পত্র নম্বর)
+                    National ID / NID (জাতীয় পরিচয়পত্র নম্বর - শুধুমাত্র সংখ্যা)
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={sellerNid}
-                    onChange={(e) => setSellerNid(e.target.value)}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 17);
+                      setSellerNid(digits);
+                    }}
                     placeholder="e.g. 19921234567890 (১০ বা ১৭ ডিজিট)"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
                   />

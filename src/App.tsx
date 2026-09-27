@@ -33,12 +33,34 @@ import { BikeDetailView } from './pages/BikeDetailView';
 import { AdditionalCostPage } from './pages/AdditionalCostPage';
 import { AddBikePage } from './pages/AddBikePage';
 import { AdminPage } from './pages/AdminPage';
+import { AdminPinModal } from './components/modals/AdminPinModal';
 
 export default function App() {
-  const { isAdmin, signInWithGmail } = useAuth();
+  const { 
+    isAdmin, 
+    isPinModalOpen, 
+    closePinModal, 
+    openPinModal, 
+    verifyAdminPin 
+  } = useAuth();
 
-  // Navigation: Default to 'dashboard' (Option 1)
-  const [currentPage, setCurrentPage] = useState<ActivePage>('dashboard');
+  // Navigation: Default to 'dashboard' if admin, or 'stock' (Our Collection) for customers
+  const [currentPage, setCurrentPage] = useState<ActivePage>(() => {
+    try {
+      const isPinAuthed = localStorage.getItem('mamotors_admin_pin_session') === 'true';
+      return isPinAuthed ? 'dashboard' : 'stock';
+    } catch {
+      return 'stock';
+    }
+  });
+
+  // Automatically redirect customer to 'stock' if on 'dashboard'
+  useEffect(() => {
+    if (!isAdmin && (currentPage === 'dashboard' || currentPage === 'home')) {
+      setCurrentPage('stock');
+    }
+  }, [isAdmin, currentPage]);
+
   // Sidebar hidden by default on all devices like mobile view
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -367,8 +389,13 @@ export default function App() {
         <div key="add-bike-page" className="animate-page-enter fixed inset-0 w-screen h-screen overflow-y-auto overflow-x-hidden bg-slate-950 p-6 flex items-center justify-center">
           <AdminRestrictedNotice
             pageTitle="Add Bike to Stock"
-            onOpenLogin={() => signInWithGmail()}
+            onOpenLogin={() => openPinModal(() => setCurrentPage('add-bike'))}
             onBackToCollection={() => setCurrentPage('stock')}
+          />
+          <AdminPinModal 
+            isOpen={isPinModalOpen} 
+            onClose={closePinModal} 
+            verifyPin={verifyAdminPin} 
           />
         </div>
       );
@@ -486,24 +513,38 @@ export default function App() {
         {/* Viewport for the 6 Sidebar Modules with Page Entrance Animation */}
         <main ref={mainScrollRef} className="flex-1 bg-slate-950 overflow-y-auto overflow-x-hidden min-h-0">
           <div key={currentPage} className="animate-page-enter w-full min-h-full">
-            {/* 1. Dashboard */}
-            {(currentPage === 'dashboard' || currentPage === 'home') && (
-              <DashboardView
-                bikes={bikes}
-                purchases={purchases}
-                sales={sales}
-                inquiries={inquiries}
-                onNavigate={handleNavigate}
-                onSelectBike={handleSelectBike}
-                onOpenAddBikeModal={() => {
-                  setCurrentPage('stock');
-                  setIsStockAddModalOpen(true);
-                }}
-                onOpenAddPurchaseModal={() => {
-                  setCurrentPage('purchase');
-                  setIsPurchaseAddModalOpen(true);
-                }}
-              />
+            {/* 1. Dashboard (Admin Only) */}
+            {currentPage === 'dashboard' && (
+              isAdmin ? (
+                <DashboardView
+                  bikes={bikes}
+                  purchases={purchases}
+                  sales={sales}
+                  inquiries={inquiries}
+                  onNavigate={handleNavigate}
+                  onSelectBike={handleSelectBike}
+                  onOpenAddBikeModal={() => {
+                    setCurrentPage('stock');
+                    setIsStockAddModalOpen(true);
+                  }}
+                  onOpenAddPurchaseModal={() => {
+                    setCurrentPage('purchase');
+                    setIsPurchaseAddModalOpen(true);
+                  }}
+                />
+              ) : (
+                <StockView
+                  bikes={bikes}
+                  onSelectBike={handleSelectBike}
+                  onAddBike={handleAddBikeToStock}
+                  onUpdateBike={handleUpdateBike}
+                  onDeleteBike={handleDeleteBike}
+                  onNavigateToDetails={() => setCurrentPage('details')}
+                  onNavigateToAddBike={() => setCurrentPage('add-bike')}
+                  isAddModalOpen={isStockAddModalOpen}
+                  onCloseAddModal={() => setIsStockAddModalOpen(false)}
+                />
+              )
             )}
 
             {/* 2. Stock (ki ki bike stock e ase) */}
@@ -534,7 +575,7 @@ export default function App() {
               ) : (
                 <AdminRestrictedNotice
                   pageTitle="Purchase Management"
-                  onOpenLogin={() => signInWithGmail()}
+                  onOpenLogin={() => openPinModal(() => setCurrentPage('purchase'))}
                   onBackToCollection={() => setCurrentPage('stock')}
                 />
               )
@@ -553,7 +594,7 @@ export default function App() {
               ) : (
                 <AdminRestrictedNotice
                   pageTitle="Sales & Financial Entries"
-                  onOpenLogin={() => signInWithGmail()}
+                  onOpenLogin={() => openPinModal(() => setCurrentPage('sell'))}
                   onBackToCollection={() => setCurrentPage('stock')}
                 />
               )
@@ -583,7 +624,7 @@ export default function App() {
               ) : (
                 <AdminRestrictedNotice
                   pageTitle="Showroom Settings"
-                  onOpenLogin={() => signInWithGmail()}
+                  onOpenLogin={() => openPinModal(() => setCurrentPage('settings'))}
                   onBackToCollection={() => setCurrentPage('stock')}
                 />
               )
@@ -606,13 +647,20 @@ export default function App() {
               ) : (
                 <AdminRestrictedNotice
                   pageTitle="Dealer DMS Admin"
-                  onOpenLogin={() => signInWithGmail()}
+                  onOpenLogin={() => openPinModal(() => setCurrentPage('admin'))}
                   onBackToCollection={() => setCurrentPage('stock')}
                 />
               )
             )}
           </div>
         </main>
+
+        {/* Global Admin PIN Modal */}
+        <AdminPinModal
+          isOpen={isPinModalOpen}
+          onClose={closePinModal}
+          verifyPin={verifyAdminPin}
+        />
       </div>
     </div>
   );

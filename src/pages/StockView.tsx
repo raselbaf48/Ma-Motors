@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { Bike } from '../types/bike';
 import { formatBDT } from '../utils/formatters';
 import { BikeVisual } from '../components/common/BikeVisual';
+import { BrandLogo } from '../components/common/BrandLogo';
+import { ShopByBrands } from '../components/common/ShopByBrands';
+import { POPULAR_BRANDS } from '../utils/brandLogos';
+import { BRAND_MODELS_DB, autoDetectBrakingSystem, detectFuelSupply } from '../utils/motorcycleDatabase';
+import { handleNumericKeyDown, sanitizeNumeric, handleTextOnlyKeyDown, sanitizeTextOnly } from '../utils/inputValidation';
 import { useAuth } from '../context/AuthContext';
 import { 
   Search, 
@@ -14,11 +19,12 @@ import {
   Camera,
   Trash2,
   UploadCloud,
-  ShieldCheck,
   Crown,
   Lock,
   Sparkles,
-  CreditCard
+  Bike as BikeIcon,
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 
 interface StockViewProps {
@@ -55,17 +61,23 @@ export const StockView: React.FC<StockViewProps> = ({
 
   // Form State
   const [formBrand, setFormBrand] = useState('Yamaha');
+  const [formCustomBrand, setFormCustomBrand] = useState('');
+  const [isCustomBrand, setIsCustomBrand] = useState(false);
+  const [formBrandLogoUrl, setFormBrandLogoUrl] = useState('');
   const [formModel, setFormModel] = useState('');
   const [formName, setFormName] = useState('');
   const [formMfgYear, setFormMfgYear] = useState(2023);
   const [formRegYear, setFormRegYear] = useState(2023);
+  const [formIsOnTest, setFormIsOnTest] = useState(false);
   const [formRegNumber, setFormRegNumber] = useState('');
-  const [formBuyingPrice, setFormBuyingPrice] = useState(280000);
-  const [formAskingPrice, setFormAskingPrice] = useState(330000);
+  const [formBuyingPrice, setFormBuyingPrice] = useState(250000);
+  const [formAskingPrice, setFormAskingPrice] = useState(300000);
   const [formCc, setFormCc] = useState(150);
   const [formMileage, setFormMileage] = useState(5000);
-  const [formCategory, setFormCategory] = useState<'Sport' | 'Cruiser' | 'Naked' | 'Commuter' | 'Tourer'>('Sport');
+  const [formCategory, setFormCategory] = useState<'Sport' | 'Cruiser' | 'Naked' | 'Commuter' | 'Tourer' | 'Scooter'>('Sport');
   const [formBrakingSystem, setFormBrakingSystem] = useState<string>('Single Channel ABS');
+  const [formFuelSupply, setFormFuelSupply] = useState<'FI' | 'Carburetor' | 'Electric'>('FI');
+  const [isAutoBrakeSelected, setIsAutoBrakeSelected] = useState(true);
   const [formImages, setFormImages] = useState<string[]>([]);
   const [formImageUrl, setFormImageUrl] = useState('');
 
@@ -103,17 +115,50 @@ export const StockView: React.FC<StockViewProps> = ({
 
   const uniqueBrands = ['ALL', ...Array.from(new Set(bikes.map((b) => b.brand)))];
 
+  const CURRENT_YEAR = new Date().getFullYear();
+  const ALL_MFG_YEARS = Array.from({ length: CURRENT_YEAR - 2010 + 1 }, (_, i) => CURRENT_YEAR - i);
+  const availableRegYears = ALL_MFG_YEARS.filter((yr) => yr >= formMfgYear).sort((a, b) => a - b);
+
+  const handleBuyingPriceChange = (val: number) => {
+    setFormBuyingPrice(val);
+    if (val > 0) {
+      setFormAskingPrice(Math.round(val * 1.20));
+    }
+  };
+
+  const handleMfgYearChange = (year: number) => {
+    setFormMfgYear(year);
+    if (formRegYear < year) {
+      setFormRegYear(year);
+    }
+  };
+
+  const handleToggleOnTest = (checked: boolean) => {
+    setFormIsOnTest(checked);
+    if (checked) {
+      setFormRegNumber('On Test');
+    } else if (formRegNumber === 'On Test') {
+      setFormRegNumber(`Dhaka Metro-LA-${Math.floor(10 + Math.random() * 89)}-${Math.floor(1000 + Math.random() * 9000)}`);
+    }
+  };
+
   const handleOpenAdd = () => {
     setFormBrand('Yamaha');
+    setFormCustomBrand('');
+    setIsCustomBrand(false);
+    setFormBrandLogoUrl('');
     setFormModel('');
     setFormName('');
     setFormMfgYear(2023);
     setFormRegYear(2023);
+    setFormIsOnTest(false);
     setFormRegNumber(`Dhaka Metro-LA-${Math.floor(10 + Math.random() * 89)}-${Math.floor(1000 + Math.random() * 9000)}`);
     setFormBuyingPrice(250000);
     setFormAskingPrice(300000);
     setFormCc(150);
     setFormMileage(6000);
+    setFormBrakingSystem('Single Channel ABS');
+    setFormFuelSupply('FI');
     setFormCategory('Sport');
     setFormImages([]);
     setFormImageUrl('');
@@ -133,16 +178,18 @@ export const StockView: React.FC<StockViewProps> = ({
 
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
+    const finalBrand = (isCustomBrand && formCustomBrand.trim()) ? formCustomBrand.trim() : formBrand;
     const newId = `bike-${Date.now()}`;
     const newBike: Bike = {
       id: newId,
-      name: formName || `${formBrand} ${formModel}`,
-      brand: formBrand,
+      name: formName || `${finalBrand} ${formModel}`,
+      brand: finalBrand,
+      brandLogoUrl: formBrandLogoUrl.trim() || undefined,
       model: formModel || 'Standard',
       mfgYear: formMfgYear,
-      regYear: formRegYear,
+      regYear: formIsOnTest ? formMfgYear : formRegYear,
       year: formMfgYear,
-      regNumber: formRegNumber,
+      regNumber: formIsOnTest ? 'On Test' : formRegNumber,
       buyingPrice: formBuyingPrice,
       askingPrice: formAskingPrice,
       price: formAskingPrice,
@@ -152,7 +199,7 @@ export const StockView: React.FC<StockViewProps> = ({
       conditionGrade: 'A',
       conditionLabel: 'Good',
       fuelType: 'Petrol',
-      fuelSupply: 'FI',
+      fuelSupply: formFuelSupply,
       brakingSystem: formBrakingSystem,
       transmission: 'Manual',
       color: 'Cyan / Black',
@@ -161,7 +208,7 @@ export const StockView: React.FC<StockViewProps> = ({
       featured: false,
       inStock: true,
       status: 'Available',
-      registrationYear: formRegYear,
+      registrationYear: formIsOnTest ? formMfgYear : formRegYear,
       registrationCity: 'Dhaka',
       ownersCount: 1,
       warrantyMonths: 12,
@@ -179,6 +226,7 @@ export const StockView: React.FC<StockViewProps> = ({
         rearBrake: formBrakingSystem.includes('Dual') ? 'Disc' : 'Drum',
         absType: formBrakingSystem,
         brakingSystem: formBrakingSystem,
+        fuelSupply: formFuelSupply,
         tyreConditionPct: 90,
         batteryHealthPct: 95
       },
@@ -267,39 +315,66 @@ export const StockView: React.FC<StockViewProps> = ({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
-            <div className="text-[11px] text-slate-400">Available in Showroom</div>
-            <div className="text-xl font-bold text-cyan-400 font-mono mt-1">
-              {inStockList.length} <span className="text-xs text-slate-400 font-normal">Premium Bikes</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow flex items-center justify-between">
+            <div>
+              <div className="text-[11px] text-slate-400">Available in Showroom</div>
+              <div className="text-xl font-bold text-cyan-400 font-mono mt-1">
+                {inStockList.length} <span className="text-xs text-slate-400 font-normal">Premium Bikes</span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center">
+              <BikeIcon className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
-            <div className="text-[11px] text-slate-400">Quality Inspection</div>
-            <div className="text-base font-bold text-emerald-400 font-mono mt-1.5 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>50-Point Certified</span>
+          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow flex items-center justify-between">
+            <div>
+              <div className="text-[11px] text-slate-400">Ownership & Papers</div>
+              <div className="text-base font-bold text-white font-mono mt-1 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <span>100% Genuine Verified</span>
+              </div>
             </div>
-          </div>
-
-          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
-            <div className="text-[11px] text-slate-400">EMI Facility</div>
-            <div className="text-base font-bold text-amber-300 font-mono mt-1.5 flex items-center gap-1.5">
-              <CreditCard className="w-4 h-4 text-amber-400" />
-              <span>Up to 24 Months</span>
-            </div>
-          </div>
-
-          <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl shadow">
-            <div className="text-[11px] text-slate-400">Ownership & Papers</div>
-            <div className="text-base font-bold text-white font-mono mt-1.5 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span>100% Genuine</span>
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <Check className="w-5 h-5" />
             </div>
           </div>
         </div>
       )}
+
+      {/* 1. Shop By Brands Carousel with Actual Logos */}
+      <ShopByBrands
+        brands={uniqueBrands}
+        selectedBrand={selectedBrand}
+        onSelectBrand={setSelectedBrand}
+        bikes={bikes}
+      />
+
+      {/* 2. All Available Bikes Section Heading */}
+      <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            All Available Bikes
+          </h2>
+          {selectedBrand !== 'ALL' && (
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-bold">
+              <span>{selectedBrand}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedBrand('ALL')}
+                className="hover:text-white cursor-pointer ml-0.5"
+                title="Clear brand filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="text-xs text-slate-400 font-mono">
+          <strong className="text-white font-bold">{filteredBikes.length}</strong> {filteredBikes.length === 1 ? 'Bike' : 'Bikes'}
+        </div>
+      </div>
 
       {/* Filter and Search Controls */}
       <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-xl space-y-3">
@@ -359,26 +434,8 @@ export const StockView: React.FC<StockViewProps> = ({
           </div>
         </div>
 
-        {/* Brand Filter */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs">
-          <span className="text-slate-500 text-[11px] mr-1 shrink-0">Brand:</span>
-          {uniqueBrands.map((brand) => (
-            <button
-              key={brand}
-              onClick={() => setSelectedBrand(brand)}
-              className={`px-2.5 py-0.5 rounded-md text-[11px] shrink-0 transition-colors border ${
-                selectedBrand === brand
-                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-semibold'
-                  : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-              }`}
-            >
-              {brand}
-            </button>
-          ))}
-        </div>
-
         {/* Braking System Filter */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs pt-2 border-t border-slate-800/60">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs pt-1 border-t border-slate-800/60">
           <span className="text-slate-400 text-[11px] mr-1 shrink-0 flex items-center gap-1 font-medium">
             <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
             <span>ব্রেকিং সিস্টেম:</span>
@@ -580,22 +637,70 @@ export const StockView: React.FC<StockViewProps> = ({
             </div>
 
             <form onSubmit={handleSubmitForm} className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="text-slate-400 block mb-1">Brand</label>
-                  <select
-                    value={formBrand}
-                    onChange={(e) => setFormBrand(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                  >
-                    {['Yamaha', 'Honda', 'Bajaj', 'Suzuki', 'TVS', 'KTM', 'Royal Enfield', 'Kawasaki', 'Hero'].map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-400 font-semibold">Brand (ব্র্যান্ড) *</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !isCustomBrand;
+                        setIsCustomBrand(next);
+                        if (next) {
+                          setFormCustomBrand('');
+                        }
+                      }}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 font-medium cursor-pointer"
+                    >
+                      {isCustomBrand ? 'তালিকা থেকে সিলেক্ট করুন' : '+ অন্য কোনো ব্র্যান্ড'}
+                    </button>
+                  </div>
+
+                  {isCustomBrand ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          required
+                          value={formCustomBrand}
+                          onKeyDown={handleTextOnlyKeyDown}
+                          onChange={(e) => {
+                            const textOnly = sanitizeTextOnly(e.target.value);
+                            setFormCustomBrand(textOnly);
+                            setFormBrand(textOnly);
+                          }}
+                          placeholder="ব্র্যান্ডের নাম লিখুন (শুধুমাত্র টেক্সট, যেমন: BMW, Runner, GPX...)"
+                          className="flex-1 bg-slate-950 border border-cyan-500/60 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-400 font-semibold"
+                        />
+                        <div className="w-12 h-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-sm" title="Auto Brand Logo Preview">
+                          <BrandLogo brand={formCustomBrand || 'Other'} size="sm" customLogoUrl={formBrandLogoUrl} />
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span>ব্র্যান্ডের নাম শুধুমাত্র টেক্সট হবে (সংখ্যা গ্রহণ করবে না)</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={formBrand}
+                        onChange={(e) => setFormBrand(e.target.value)}
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500 font-semibold"
+                      >
+                        {POPULAR_BRANDS.map((b) => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                      <div className="w-12 h-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-sm" title="Auto Brand Logo Preview">
+                        <BrandLogo brand={formBrand} size="sm" customLogoUrl={formBrandLogoUrl} />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1">Model</label>
+                  <label className="text-slate-400 block mb-1">Model (মডেল - টেক্সট ও নাম্বার প্রযোজ্য) *</label>
                   <input
                     type="text"
                     required
@@ -603,49 +708,113 @@ export const StockView: React.FC<StockViewProps> = ({
                     onChange={(e) => {
                       const val = e.target.value;
                       setFormModel(val);
-                      const lower = val.toLowerCase();
-                      if (
-                        lower.includes('dual abs') ||
-                        lower.includes('dual channel') ||
-                        lower.includes('r15') ||
-                        lower.includes('ns400') ||
-                        lower.includes('n250') ||
-                        lower.includes('f250') ||
-                        lower.includes('n160 dual') ||
-                        lower.includes('rr 310') ||
-                        lower.includes('cbr') ||
-                        lower.includes('duke') ||
-                        lower.includes('ninja') ||
-                        lower.includes('dominar') ||
-                        lower.includes('classic 350 dark')
-                      ) {
-                        setFormBrakingSystem('Dual Channel ABS');
-                      } else if (
-                        lower.includes('single abs') ||
-                        lower.includes('single channel') ||
-                        lower.includes('abs') ||
-                        lower.includes('fz-s') ||
-                        lower.includes('mt-15') ||
-                        lower.includes('gixxer') ||
-                        lower.includes('ns160')
-                      ) {
-                        setFormBrakingSystem('Single Channel ABS');
-                      } else if (lower.includes('dual disc') || lower.includes('twin disc')) {
-                        setFormBrakingSystem('Dual Disc');
-                      } else if (lower.includes('cbs') || lower.includes('combi')) {
-                        setFormBrakingSystem('CBS');
-                      } else if (lower.includes('drum')) {
-                        setFormBrakingSystem('Drum Brakes');
-                      }
+                      const currentBrand = (isCustomBrand && formCustomBrand.trim()) ? formCustomBrand.trim() : formBrand;
+                      const detected = autoDetectBrakingSystem(currentBrand, val);
+                      setFormBrakingSystem(detected.brakingSystem);
+                      setFormFuelSupply(detectFuelSupply(currentBrand, val));
+                      if (detected.cc) setFormCc(detected.cc);
+                      if (detected.category) setFormCategory(detected.category);
+                      setIsAutoBrakeSelected(detected.isAutoMatched);
                     }}
-                    placeholder="e.g. FZ-S V3"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                    placeholder="e.g. YZF-R15 V4, FZ-S V3, Pulsar N160..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500 font-semibold"
                   />
                 </div>
               </div>
 
+              {/* Quick Model Presets for Brand */}
+              {(() => {
+                const currentBrand = (isCustomBrand && formCustomBrand.trim()) ? formCustomBrand.trim() : formBrand;
+                const models = BRAND_MODELS_DB[currentBrand.toLowerCase()] || [];
+                if (models.length === 0) return null;
+                return (
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-cyan-400 font-bold flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-cyan-400" />
+                      <span>{currentBrand}-এর জনপ্রিয় মডেল (ক্লিক করলেই ব্রেকিং ও ফুয়েল সিস্টেম অটো সেট হবে):</span>
+                    </span>
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                      {models.map((m) => (
+                        <button
+                          key={m.model}
+                          type="button"
+                          onClick={() => {
+                            setFormModel(m.model);
+                            setFormBrakingSystem(m.brakingSystem);
+                            setFormFuelSupply(m.fuelSupply || detectFuelSupply(currentBrand, m.model));
+                            setFormCc(m.cc);
+                            setFormCategory(m.category);
+                            setFormName(`${currentBrand} ${m.model}`);
+                            setIsAutoBrakeSelected(true);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold shrink-0 transition-all border cursor-pointer active:scale-95 ${
+                            formModel === m.model
+                              ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm'
+                              : 'bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white border-slate-800'
+                          }`}
+                        >
+                          <span>{m.model}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Braking System & Fuel Supply: Strictly Auto-Calculated, Manual change disabled */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Braking System */}
+                <div className="p-3 bg-slate-950/90 rounded-xl border border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-cyan-300 font-bold text-xs flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                      <span>Braking System (ব্রেকিং সিস্টেম)</span>
+                    </label>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
+                      <Lock className="w-3 h-3 text-emerald-400" />
+                      <span>অটো-সিলেক্টেড (লক)</span>
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-900 border border-slate-700/80 rounded-lg p-2.5 text-white font-mono text-xs flex items-center justify-between font-bold cursor-not-allowed select-none opacity-95">
+                    <span className="text-cyan-300 font-bold">{formBrakingSystem}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">ম্যানুয়াল পরিবর্তন বন্ধ</span>
+                  </div>
+                </div>
+
+                {/* Fuel Supply */}
+                <div className="p-3 bg-slate-950/90 rounded-xl border border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-cyan-300 font-bold text-xs flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-cyan-400" />
+                      <span>Fuel Supply (ফুয়েল সিস্টেম)</span>
+                    </label>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
+                      <Lock className="w-3 h-3 text-emerald-400" />
+                      <span>অটো-সিলেক্টেড (লক)</span>
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-900 border border-slate-700/80 rounded-lg p-2.5 text-white font-mono text-xs flex items-center justify-between font-bold cursor-not-allowed select-none opacity-95">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                        formFuelSupply === 'FI' 
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' 
+                          : formFuelSupply === 'Electric'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      }`}>
+                        {formFuelSupply}
+                      </span>
+                      <span className="text-[11px] text-slate-300 font-sans font-medium">
+                        {formFuelSupply === 'FI' ? 'Fuel Injection' : formFuelSupply === 'Electric' ? 'Electric' : 'Carburetor'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-normal">ম্যানুয়াল পরিবর্তন বন্ধ</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="text-xs">
-                <label className="text-slate-400 block mb-1">Full Title</label>
+                <label className="text-slate-400 block mb-1">Full Title (পূর্ণ নাম)</label>
                 <input
                   type="text"
                   required
@@ -656,109 +825,191 @@ export const StockView: React.FC<StockViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-2.5 text-xs">
-                <div>
-                  <label className="text-slate-400 block mb-1">Reg Year</label>
+              {/* On-Test Checkbox */}
+              <div className="flex items-center justify-between p-2.5 bg-slate-950 rounded-lg border border-slate-800 text-xs">
+                <div className="flex items-center gap-2">
                   <input
-                    type="number"
-                    value={formRegYear}
-                    onChange={(e) => setFormRegYear(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
+                    type="checkbox"
+                    id="stock-ontest-checkbox"
+                    checked={formIsOnTest}
+                    onChange={(e) => handleToggleOnTest(e.target.checked)}
+                    className="w-4 h-4 rounded accent-cyan-500 cursor-pointer"
                   />
+                  <label htmlFor="stock-ontest-checkbox" className="text-white font-semibold cursor-pointer select-none">
+                    Bike On-Test (আনরেজিস্টার্ড / রেজিস্ট্রেশন এখনো হয়নি)
+                  </label>
+                </div>
+                {formIsOnTest && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
+                    On-Test Active
+                  </span>
+                )}
+              </div>
+
+              {/* Field Group: MFG, Reg Year, Reg Number */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                {/* MFG Dropdown (Name changed to MFG Year, 2010 to Running Year) */}
+                <div>
+                  <label className="text-slate-400 block mb-1 font-semibold">
+                    MFG Year *
+                  </label>
+                  <select
+                    value={formMfgYear}
+                    onChange={(e) => handleMfgYearChange(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+                  >
+                    {ALL_MFG_YEARS.map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div className="col-span-2">
-                  <label className="text-slate-400 block mb-1">Reg Number</label>
+                {/* Reg Year Dropdown (Hidden if Bike On-Test, only >= MFG Year up to running year) */}
+                {!formIsOnTest ? (
+                  <div>
+                    <label className="text-slate-400 block mb-1 font-semibold">
+                      Reg Year *
+                    </label>
+                    <select
+                      value={formRegYear}
+                      onChange={(e) => setFormRegYear(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-cyan-400 font-mono font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+                    >
+                      {availableRegYears.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
+                {/* Reg Number */}
+                <div className={formIsOnTest ? 'sm:col-span-2' : ''}>
+                  <label className="text-slate-400 block mb-1 font-semibold">
+                    Reg Number *
+                  </label>
                   <input
                     type="text"
                     required
-                    value={formRegNumber}
+                    disabled={formIsOnTest}
+                    value={formIsOnTest ? 'On Test' : formRegNumber}
                     onChange={(e) => setFormRegNumber(e.target.value)}
-                    placeholder="Dhaka Metro-LA-55-9012"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
+                    placeholder="e.g. Dhaka Metro-LA-55-9012"
+                    className={`w-full bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono font-bold focus:outline-none focus:border-cyan-500 ${
+                      formIsOnTest ? 'text-amber-400 opacity-80 cursor-not-allowed' : 'text-white'
+                    }`}
                   />
                 </div>
               </div>
 
-              {/* Price */}
-              <div className="grid grid-cols-2 gap-3 text-xs bg-slate-950 p-3 rounded-lg border border-slate-800">
+              {/* Price Group: Asking Price is Buying Price + 20% Auto */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-950 p-3 rounded-lg border border-slate-800">
                 <div>
-                  <label className="text-slate-400 block mb-1">Buying Price (৳)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-400 font-semibold">Buying Price (ক্রয়মূল্য - শুধুমাত্র সংখ্যা) *</label>
+                  </div>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
-                    value={formBuyingPrice}
-                    onChange={(e) => setFormBuyingPrice(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-white font-mono focus:outline-none focus:border-cyan-500"
+                    value={formBuyingPrice || ''}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={(e) => {
+                      const digits = sanitizeNumeric(e.target.value);
+                      handleBuyingPriceChange(digits ? Number(digits) : 0);
+                    }}
+                    placeholder="e.g. 250000"
+                    className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
                   />
+                  <div className="text-[10px] text-slate-500 mt-1 font-mono">
+                    {formatBDT(formBuyingPrice)}
+                  </div>
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1">Asking Price (৳)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-400 font-semibold">Asking Price (বিক্রয়মূল্য - শুধুমাত্র সংখ্যা) *</label>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      ক্রয়মূল্যের ২০% বেশি (+20% Auto)
+                    </span>
+                  </div>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
-                    value={formAskingPrice}
-                    onChange={(e) => setFormAskingPrice(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-emerald-400 font-mono focus:outline-none focus:border-cyan-500"
+                    value={formAskingPrice || ''}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={(e) => {
+                      const digits = sanitizeNumeric(e.target.value);
+                      setFormAskingPrice(digits ? Number(digits) : 0);
+                    }}
+                    placeholder="e.g. 300000"
+                    className="w-full p-2 bg-slate-900 border border-emerald-500/40 rounded-lg text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-400"
                   />
+                  <div className="text-[10px] text-emerald-400/80 mt-1 font-mono flex items-center justify-between">
+                    <span>{formatBDT(formAskingPrice)}</span>
+                    <span className="text-[9px] text-slate-400">প্রফিট: {formatBDT(formAskingPrice - formBuyingPrice)}</span>
+                  </div>
                 </div>
               </div>
 
               {/* CC, Mileage */}
               <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <div>
-                  <label className="text-slate-400 block mb-1">Engine (cc)</label>
+                  <label className="text-slate-400 block mb-1">Engine CC (শুধুমাত্র সংখ্যা)</label>
                   <input
-                    type="number"
-                    value={formCc}
-                    onChange={(e) => setFormCc(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={formCc || ''}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={(e) => {
+                      const digits = sanitizeNumeric(e.target.value);
+                      setFormCc(digits ? Number(digits) : 0);
+                    }}
+                    placeholder="e.g. 155"
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1">Mileage (km)</label>
+                  <label className="text-slate-400 block mb-1">Mileage KM (শুধুমাত্র সংখ্যা)</label>
                   <input
-                    type="number"
-                    value={formMileage}
-                    onChange={(e) => setFormMileage(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={formMileage || ''}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={(e) => {
+                      const digits = sanitizeNumeric(e.target.value);
+                      setFormMileage(digits ? Number(digits) : 0);
+                    }}
+                    placeholder="e.g. 5000"
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
                   />
                 </div>
               </div>
 
-              {/* Braking System and Category */}
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                <div>
-                  <label className="text-slate-400 block mb-1">Braking System (ব্রেকিং সিস্টেম)</label>
-                  <select
-                    value={formBrakingSystem}
-                    onChange={(e) => setFormBrakingSystem(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyan-500"
-                  >
-                    <option value="Dual Channel ABS">Dual Channel ABS</option>
-                    <option value="Single Channel ABS">Single Channel ABS</option>
-                    <option value="CBS">CBS (Combi Brake)</option>
-                    <option value="Dual Disc">Dual Disc</option>
-                    <option value="Front Disc / Rear Drum">Front Disc / Rear Drum</option>
-                    <option value="Drum Brakes">Drum Brakes</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-slate-400 block mb-1">Category</label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                  >
-                    <option value="Sport">Sport</option>
-                    <option value="Naked">Naked</option>
-                    <option value="Commuter">Commuter</option>
-                    <option value="Cruiser">Cruiser</option>
-                    <option value="Tourer">Tourer</option>
-                  </select>
-                </div>
+              {/* Category */}
+              <div className="text-xs">
+                <label className="text-slate-400 block mb-1">Category (ধরন)</label>
+                <select
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value as any)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500 font-semibold"
+                >
+                  <option value="Sport">Sport</option>
+                  <option value="Naked">Naked</option>
+                  <option value="Commuter">Commuter</option>
+                  <option value="Cruiser">Cruiser</option>
+                  <option value="Tourer">Tourer</option>
+                  <option value="Scooter">Scooter</option>
+                </select>
               </div>
 
               {/* Photos Section */}

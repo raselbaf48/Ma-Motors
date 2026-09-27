@@ -49,6 +49,7 @@ export interface Bike {
   id: string;
   name: string;
   brand: string;
+  brandLogoUrl?: string;
   model: string;
   mfgYear: number;
   regYear: number;

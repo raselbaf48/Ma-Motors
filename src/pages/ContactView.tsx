@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CustomerInquiry, ShowroomSettings } from '../types/bike';
+import { useAuth } from '../context/AuthContext';
 import { 
   MapPin, 
   Clock, 
@@ -8,7 +9,9 @@ import {
   Search, 
   Phone,
   User,
-  PhoneCall
+  PhoneCall,
+  Building2,
+  MessageCircle
 } from 'lucide-react';
 
 interface ContactViewProps {
@@ -24,7 +27,8 @@ export const ContactView: React.FC<ContactViewProps> = ({
   onSubmitInquiry,
   settings
 }) => {
-  const [activeTab, setActiveTab] = useState<'leads' | 'showroom' | 'new_lead'>('leads');
+  const { isAdmin } = useAuth();
+  const [activeTab, setActiveTab] = useState<'leads' | 'showroom' | 'new_lead'>('showroom');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
@@ -75,11 +79,14 @@ export const ContactView: React.FC<ContactViewProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            Contact
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+            <Building2 className="w-6 h-6 text-cyan-400" />
+            <span>Contact Us</span>
           </h1>
           <p className="text-slate-400 text-xs mt-0.5">
-            Customer inquiries, leads, and showroom contact info
+            {isAdmin 
+              ? 'শোরুমের যোগাযোগ তথ্য এবং কাস্টমার ইনকোয়ারি পরিচালনা' 
+              : 'শোরুম লোকেশন, ঠিকানা, ম্যানেজারের যোগাযোগ ও অনুসন্ধান'}
           </p>
         </div>
 
@@ -88,9 +95,10 @@ export const ContactView: React.FC<ContactViewProps> = ({
             href={`https://wa.me/${(settings?.whatsapp || '+880 1739-840603').replace(/\D/g, '')}?text=Hello%20${encodeURIComponent(settings?.showroomName || 'Ma Motors')},%20I%20have%20an%20inquiry.`}
             target="_blank"
             rel="noreferrer"
-            className="px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-400 font-semibold text-xs rounded-xl transition-colors"
+            className="px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-400 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5"
           >
-            WhatsApp
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span>WhatsApp</span>
           </a>
           <a
             href={`tel:${(settings?.hotline || '+880 1739-840603').replace(/\s+/g, '')}`}
@@ -102,46 +110,48 @@ export const ContactView: React.FC<ContactViewProps> = ({
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-        <button
-          onClick={() => setActiveTab('leads')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            activeTab === 'leads'
-              ? 'bg-cyan-500 text-slate-950 font-bold'
-              : 'text-slate-400 hover:text-white bg-slate-900'
-          }`}
-        >
-          <span>Leads & Inquiries ({inquiries.length})</span>
-          {newCount > 0 && (
-            <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
-              {newCount}
-            </span>
-          )}
-        </button>
+      {/* Tabs (Only visible for Admin to switch between Showroom Details and Inquiries CRM) */}
+      {isAdmin && (
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <button
+            onClick={() => setActiveTab('showroom')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              activeTab === 'showroom'
+                ? 'bg-cyan-500 text-slate-950 font-bold'
+                : 'text-slate-400 hover:text-white bg-slate-900'
+            }`}
+          >
+            Showroom Details
+          </button>
 
-        <button
-          onClick={() => setActiveTab('showroom')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            activeTab === 'showroom'
-              ? 'bg-cyan-500 text-slate-950 font-bold'
-              : 'text-slate-400 hover:text-white bg-slate-900'
-          }`}
-        >
-          Showroom Location
-        </button>
+          <button
+            onClick={() => setActiveTab('leads')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              activeTab === 'leads'
+                ? 'bg-cyan-500 text-slate-950 font-bold'
+                : 'text-slate-400 hover:text-white bg-slate-900'
+            }`}
+          >
+            <span>Customer Leads ({inquiries.length})</span>
+            {newCount > 0 && (
+              <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                {newCount}
+              </span>
+            )}
+          </button>
 
-        <button
-          onClick={() => setActiveTab('new_lead')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            activeTab === 'new_lead'
-              ? 'bg-cyan-500 text-slate-950 font-bold'
-              : 'text-slate-400 hover:text-white bg-slate-900'
-          }`}
-        >
-          + Add Lead
-        </button>
-      </div>
+          <button
+            onClick={() => setActiveTab('new_lead')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              activeTab === 'new_lead'
+                ? 'bg-cyan-500 text-slate-950 font-bold'
+                : 'text-slate-400 hover:text-white bg-slate-900'
+            }`}
+          >
+            + Add Lead
+          </button>
+        </div>
+      )}
 
       {/* Tab 1: Leads */}
       {activeTab === 'leads' && (

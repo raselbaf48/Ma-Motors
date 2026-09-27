@@ -72,13 +72,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   const [photoError, setPhotoError] = useState(false);
 
   const { 
-    user, 
     isAdmin, 
-    isCustomer, 
-    signInWithGmail, 
-    signOut, 
-    switchAccount, 
-    loading: authLoading 
+    openPinModal 
   } = useAuth();
 
   // Active open state (hidden by default on all screens)
@@ -97,7 +92,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       id: 'dashboard' as ActivePage,
       label: 'Dashboard',
       icon: LayoutDashboard,
-      adminOnly: false
+      adminOnly: true
     },
     {
       id: 'stock' as ActivePage,
@@ -111,20 +106,20 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       label: 'Purchase',
       icon: ArrowDownLeft,
       adminOnly: true,
-      badge: !isAdmin ? 'Admin' : undefined
+      badge: undefined
     },
     {
       id: 'sell' as ActivePage,
       label: 'Sales',
       icon: ArrowUpRight,
       adminOnly: true,
-      badge: !isAdmin ? 'Admin' : undefined
+      badge: undefined
     },
     {
       id: 'contact' as ActivePage,
-      label: 'Contact',
+      label: 'Contact Us',
       icon: PhoneCall,
-      badge: inquiriesCount > 0 ? `${inquiriesCount}` : undefined,
+      badge: isAdmin && inquiriesCount > 0 ? `${inquiriesCount}` : undefined,
       adminOnly: false
     },
     {
@@ -132,16 +127,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       label: 'Settings',
       icon: Settings,
       adminOnly: true,
-      badge: !isAdmin ? 'Admin' : undefined
+      badge: undefined
     }
   ];
 
+  // In Customer View (!isAdmin), completely hide locked admin options
+  const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin);
+
   const handleNavClick = (item: typeof navItems[0]) => {
-    if (item.adminOnly && !isAdmin) {
-      // Trigger Google login for Master Admin
-      signInWithGmail();
-      return;
-    }
     onNavigate(item.id);
     handleClose();
   };
@@ -201,10 +194,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* Navigation List */}
       <nav className="p-2.5 space-y-1 flex-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = currentPage === item.id;
           const Icon = item.icon;
-          const isLocked = item.adminOnly && !isAdmin;
 
           return (
             <button
@@ -214,30 +206,23 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               className={`w-full text-left rounded-xl px-3 py-2 transition-all duration-150 flex items-center justify-between border cursor-pointer group ${
                 isActive
                   ? 'bg-gradient-to-r from-cyan-500/20 via-cyan-500/10 to-transparent text-white border-cyan-500/40 font-semibold shadow-sm'
-                  : isLocked
-                    ? 'text-slate-500 border-transparent hover:bg-slate-900/60 hover:text-slate-400'
-                    : 'text-slate-400 border-transparent hover:bg-slate-900 hover:text-white'
+                  : 'text-slate-400 border-transparent hover:bg-slate-900 hover:text-white'
               }`}
             >
               <div className="flex items-center gap-2.5 truncate">
                 <Icon className={`w-4 h-4 shrink-0 transition-colors ${
                   isActive 
                     ? 'text-cyan-400' 
-                    : isLocked 
-                      ? 'text-slate-600' 
-                      : 'text-slate-400 group-hover:text-slate-300'
+                    : 'text-slate-400 group-hover:text-slate-300'
                 }`} />
                 <span className="text-xs font-medium truncate">{item.label}</span>
-                {isLocked && <Lock className="w-3 h-3 text-amber-500/70 shrink-0 ml-1" />}
               </div>
 
               {item.badge && (
                 <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
                   isActive
                     ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/30'
-                    : item.badge === 'Admin'
-                      ? 'bg-amber-950/80 text-amber-300 border border-amber-500/30'
-                      : 'bg-slate-900 text-slate-400'
+                    : 'bg-slate-900 text-slate-400'
                 }`}>
                   {item.badge}
                 </span>
@@ -321,22 +306,20 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 <MessageCircle className="w-3 h-3" />
               </a>
 
-              {/* Settings / Edit Profile */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isAdmin) {
-                    signInWithGmail();
-                    return;
-                  }
-                  onNavigate('settings');
-                  handleClose();
-                }}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all border border-slate-700/80 cursor-pointer"
-                title="Edit Manager & Showroom Settings"
-              >
-                <Settings className="w-3 h-3" />
-              </button>
+              {/* Settings / Edit Profile - Only show for Admin */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onNavigate('settings');
+                    handleClose();
+                  }}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all border border-slate-700/80 cursor-pointer"
+                  title="Edit Manager & Showroom Settings"
+                >
+                  <Settings className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </div>
         </div>

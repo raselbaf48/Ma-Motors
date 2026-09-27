@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ActivePage } from '../../types/bike';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -7,6 +7,7 @@ import {
   Layers, 
   Tag, 
   Calculator, 
+  ShieldCheck,
   SlidersHorizontal, 
   MapPin, 
   X, 
@@ -39,62 +40,61 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   bikesCount = 8,
   compareCount = 0
 }) => {
-  const { user, isAdmin, isCustomer, signOut, signInWithGmail, switchAccount } = useAuth();
+  const { isAdmin } = useAuth();
 
   if (!isOpen) return null;
 
-  const menuItems = [
+  const allMenuItems = [
     {
       page: 'home' as ActivePage,
       label: 'Showroom Home',
       icon: Home,
-      badge: 'Main'
+      badge: 'Main',
+      adminOnly: false
     },
     {
       page: 'inventory' as ActivePage,
       label: 'Inventory',
       icon: BikeIcon,
-      badge: `${bikesCount}`
+      badge: `${bikesCount}`,
+      adminOnly: false
     },
     {
       page: 'compare' as ActivePage,
       label: 'Compare Bikes',
       icon: Layers,
-      badge: compareCount > 0 ? `${compareCount}` : undefined
+      badge: compareCount > 0 ? `${compareCount}` : undefined,
+      adminOnly: false
     },
     {
       page: 'sell' as ActivePage,
       label: 'Sell Your Bike',
       icon: Tag,
-      badge: 'Cash'
-    },
-    {
-      page: 'emi' as ActivePage,
-      label: 'EMI Calculator',
-      icon: Calculator
-    },
-    {
-      page: 'about' as ActivePage,
-      label: '50-Point Certification',
-      icon: ShieldCheck
+      badge: 'Cash',
+      adminOnly: false
     },
     {
       page: 'admin' as ActivePage,
       label: 'Dealer DMS (Admin)',
       icon: SlidersHorizontal,
-      badge: 'DMS'
+      badge: 'DMS',
+      adminOnly: true
     },
     {
       page: 'contact' as ActivePage,
-      label: 'Showroom & Contact',
-      icon: MapPin
+      label: 'Contact Us',
+      icon: MapPin,
+      adminOnly: false
     },
     {
       page: 'auth' as ActivePage,
       label: 'Rider Profile / Settings',
-      icon: Settings
+      icon: Settings,
+      adminOnly: true
     }
   ];
+
+  const menuItems = allMenuItems.filter((item) => !item.adminOnly || isAdmin);
 
   const handleItemClick = (page: ActivePage) => {
     onNavigate(page);

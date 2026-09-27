@@ -16,7 +16,8 @@ import {
   Crown,
   Shield,
   Plus,
-  Mail
+  Mail,
+  KeyRound
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -44,6 +45,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [managerPhotoPreviewError, setManagerPhotoPreviewError] = useState(false);
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
   const [managerMenuOpen, setManagerMenuOpen] = useState(false);
+
+  // Admin Security PIN Management State (Default 1111)
+  const [currentPin, setCurrentPin] = useState<string>(() => {
+    try {
+      return localStorage.getItem('mamotors_admin_pin') || '1111';
+    } catch {
+      return '1111';
+    }
+  });
+  const [newPinInput, setNewPinInput] = useState('');
+  const [pinSuccessMsg, setPinSuccessMsg] = useState('');
+  const [pinErrorMsg, setPinErrorMsg] = useState('');
+
+  const handleUpdatePin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinSuccessMsg('');
+    setPinErrorMsg('');
+    const clean = newPinInput.trim();
+    if (!clean || clean.length < 4) {
+      setPinErrorMsg('পিন অবশ্যই কমপক্ষে ৪-ডিজিটের সংখ্যা হতে হবে');
+      return;
+    }
+    try {
+      localStorage.setItem('mamotors_admin_pin', clean);
+      setCurrentPin(clean);
+      setNewPinInput('');
+      setPinSuccessMsg(`অ্যাডমিন পিন সফলভাবে আপডেট করা হয়েছে! নতুন পিন: ${clean}`);
+      setTimeout(() => setPinSuccessMsg(''), 4000);
+    } catch {
+      setPinErrorMsg('পিন সংরক্ষণে সমস্যা হয়েছে');
+    }
+  };
 
   // Admin Gmail Access Management State
   const [adminEmails, setAdminEmails] = useState<string[]>(() => getAdminEmails());
@@ -449,6 +482,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
+          </div>
+        </div>
+
+        {/* Section 4: Master Admin Security PIN */}
+        <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-4 sm:p-5 space-y-4 shadow-sm shadow-amber-500/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-white font-bold text-sm">
+              <Crown className="w-4 h-4 text-amber-400" />
+              <span>Master Admin Security PIN</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-mono font-bold">
+              <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+              <span>বর্তমান পিন: {currentPin}</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed">
+            মাস্টার অ্যাডমিন প্যানেলে (Purchase, Sales, Settings, Add/Delete Bike) প্রবেশের জন্য ৪-ডিজিটের পিন ব্যবহার করা হয়। ডিফল্ট পিন হচ্ছে <strong className="text-amber-300 font-mono">1111</strong>।
+          </p>
+
+          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div className="text-xs font-semibold text-slate-200">
+              পিন পরিবর্তন করতে চান?
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <input
+                type="text"
+                maxLength={8}
+                value={newPinInput}
+                onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                placeholder="নতুন ৪-ডিজিট পিন লিখুন (যেমন: 2222)"
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-white font-mono text-xs focus:outline-none focus:border-amber-400 placeholder:text-slate-500"
+              />
+              <button
+                type="button"
+                onClick={handleUpdatePin}
+                className="py-2.5 px-4 rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-md shadow-amber-500/10"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-slate-950" />
+                <span>পিন আপডেট করুন</span>
+              </button>
+            </div>
+
+            {pinErrorMsg && (
+              <p className="text-xs text-rose-400 font-medium">
+                {pinErrorMsg}
+              </p>
+            )}
+
+            {pinSuccessMsg && (
+              <p className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{pinSuccessMsg}</span>
+              </p>
+            )}
           </div>
         </div>
 

@@ -29,7 +29,7 @@ export const AdminRestrictedNotice: React.FC<AdminRestrictedNoticeProps> = ({
             {pageTitle}
           </h2>
           <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
-            এই সেকশনটি এবং শোরুমের অভ্যন্তরীণ আর্থিক তথ্য শুধুমাত্র মাস্টার অ্যাডমিন একাউন্ট (<span className="text-amber-300 font-mono font-semibold">{MASTER_ADMIN_EMAIL}</span>) এর জন্য সংরক্ষিত।
+            এই সেকশনটি এবং শোরুমের অভ্যন্তরীণ আর্থিক তথ্য শুধুমাত্র মাস্টার অ্যাডমিন অ্যাক্সেসের জন্য সংরক্ষিত।
           </p>
         </div>
 
@@ -39,7 +39,7 @@ export const AdminRestrictedNotice: React.FC<AdminRestrictedNoticeProps> = ({
             <span>অ্যাডমিন হিসেবে প্রবেশ করতে চান?</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-normal pl-6">
-            নিচের বাটনে ক্লিক করে আপনার <span className="text-amber-300 font-mono">{MASTER_ADMIN_EMAIL}</span> জিমেইল একাউন্ট নির্বাচন করে সাইন ইন করুন।
+            নিচের বাটনে ক্লিক করে অ্যাডমিন পিন (<strong className="text-amber-300 font-mono">1111</strong>) দিয়ে তাৎক্ষণিক আনলক করুন।
           </p>
         </div>
 
@@ -50,7 +50,7 @@ export const AdminRestrictedNotice: React.FC<AdminRestrictedNoticeProps> = ({
             className="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
             <Crown className="w-4 h-4" />
-            <span>Login as Master Admin</span>
+            <span>Enter Admin PIN (1111)</span>
           </button>
 
           {onBackToCollection && (

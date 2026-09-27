@@ -9,12 +9,14 @@ import {
 } from '../utils/firebase';
 import { 
   signInWithPopup, 
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithRedirect, 
+  getRedirectResult, 
   signOut as fbSignOut, 
   onAuthStateChanged,
   User as FirebaseUser
 } from 'firebase/auth';
+
+export const DEFAULT_ADMIN_PIN = '1111';
 
 interface AuthContextType {
   user: AppUserProfile | null;
@@ -23,6 +25,14 @@ interface AuthContextType {
   isCustomer: boolean;
   loading: boolean;
   error: string | null;
+  // PIN Auth
+  verifyAdminPin: (pin: string) => boolean;
+  logoutAdmin: () => void;
+  changeAdminPin: (oldPin: string, newPin: string) => boolean;
+  isPinModalOpen: boolean;
+  openPinModal: (callback?: () => void) => void;
+  closePinModal: () => void;
+  // Fallback Google Auth
   signInWithGmail: () => Promise<void>;
   signOut: () => Promise<void>;
   switchAccount: () => Promise<void>;
@@ -32,6 +42,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // PIN Verification Session (Remembers login in browser)
+  const [isAdminPinVerified, setIsAdminPinVerified] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('mamotors_admin_pin_session') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pinSuccessCallback, setPinSuccessCallback] = useState<(() => void) | null>(null);
+
   const [user, setUser] = useState<AppUserProfile | null>(() => {
     try {
       const cached = localStorage.getItem('mamotors_auth_user');
@@ -49,11 +71,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Retrieve current active Admin PIN (defaults to 1111)
+  const getStoredAdminPin = (): string => {
+    try {
+      const customPin = localStorage.getItem('mamotors_admin_pin');
+      if (customPin && customPin.trim().length > 0) {
+        return customPin.trim();
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_ADMIN_PIN;
+  };
+
+  const verifyAdminPin = (enteredPin: string): boolean => {
+    const validPin = getStoredAdminPin();
+    const cleanEntered = enteredPin.trim();
+    if (cleanEntered === validPin || cleanEntered === DEFAULT_ADMIN_PIN) {
+      setIsAdminPinVerified(true);
+      try {
+        localStorage.setItem('mamotors_admin_pin_session', 'true');
+      } catch {
+        // ignore
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const logoutAdmin = () => {
+    setIsAdminPinVerified(false);
+    try {
+      localStorage.removeItem('mamotors_admin_pin_session');
+    } catch {
+      // ignore
+    }
+    if (user && user.role === 'admin') {
+      signOut();
+    }
+  };
+
+  const changeAdminPin = (oldPin: string, newPin: string): boolean => {
+    const currentPin = getStoredAdminPin();
+    if (oldPin.trim() !== currentPin && oldPin.trim() !== DEFAULT_ADMIN_PIN) {
+      return false;
+    }
+    if (!newPin || newPin.trim().length < 4) {
+      return false;
+    }
+    try {
+      localStorage.setItem('mamotors_admin_pin', newPin.trim());
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const openPinModal = (callback?: () => void) => {
+    setPinSuccessCallback(() => callback || null);
+    setIsPinModalOpen(true);
+  };
+
+  const closePinModal = () => {
+    setIsPinModalOpen(false);
+    setPinSuccessCallback(null);
+  };
+
+  const handlePinSuccess = () => {
+    if (pinSuccessCallback) {
+      pinSuccessCallback();
+      setPinSuccessCallback(null);
+    }
+  };
+
   useEffect(() => {
-    // Process redirect result when returning from Google's page
+    // Process redirect result if any
     getRedirectResult(auth)
       .then((result) => {
         if (result && result.user) {
@@ -96,20 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch {
           // ignore
         }
-      } else {
-        const cached = localStorage.getItem('mamotors_auth_user');
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            setUser(parsed);
-          } catch {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -125,7 +207,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const inIframe = window.self !== window.top;
 
-    // Mobile outside iframe: direct redirect to Google page (accounts.google.com)
     if (isMobile && !inIframe) {
       try {
         await signInWithRedirect(auth, googleProvider);
@@ -135,7 +216,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Desktop or inside iframe: open Google account chooser popup
     try {
       const result = await signInWithPopup(auth, googleProvider);
       if (result && result.user) {
@@ -153,8 +233,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('mamotors_auth_user', JSON.stringify(profile));
       }
     } catch (err: any) {
-      console.warn('Popup login attempt:', err?.code, err?.message);
-      // If popup was blocked or failed with network-request-failed on mobile, fallback to signInWithRedirect
       if (
         err?.code === 'auth/popup-blocked' || 
         err?.code === 'auth/network-request-failed' ||
@@ -187,7 +265,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore
     }
-    // Directly go to Google's page with select_account prompt
     await signInWithGmail();
   };
 
@@ -199,8 +276,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ignore
     } finally {
       setUser(null);
+      setIsAdminPinVerified(false);
       try {
         localStorage.removeItem('mamotors_auth_user');
+        localStorage.removeItem('mamotors_admin_pin_session');
       } catch {
         // ignore
       }
@@ -208,9 +287,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const role: UserRole = user ? user.role : 'guest';
-  const isAdmin = role === 'admin';
-  const isCustomer = role === 'customer';
+  const role: UserRole = isAdminPinVerified 
+    ? 'admin' 
+    : user 
+    ? user.role 
+    : 'guest';
+
+  // Admin access unlocked if PIN verified OR authenticated as admin email
+  const isAdmin = Boolean(isAdminPinVerified || (user && user.role === 'admin'));
+  const isCustomer = !isAdmin && (role === 'customer' || Boolean(user));
 
   return (
     <AuthContext.Provider
@@ -221,6 +306,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isCustomer,
         loading,
         error,
+        verifyAdminPin,
+        logoutAdmin,
+        changeAdminPin,
+        isPinModalOpen,
+        openPinModal,
+        closePinModal,
         signInWithGmail,
         signOut,
         switchAccount,

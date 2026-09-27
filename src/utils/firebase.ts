@@ -12,7 +12,8 @@ import firebaseConfig from '../../firebase-applet-config.json';
 
 export const MASTER_ADMIN_EMAIL = 'raselbaf48@gmail.com';
 export const DEFAULT_ADMIN_EMAILS = [
-  'raselbaf48@gmail.com'
+  'raselbaf48@gmail.com',
+  'rasel399486@gmail.com'
 ];
 
 export function getAdminEmails(): string[] {

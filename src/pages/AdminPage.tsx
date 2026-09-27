@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Bike, CustomerInquiry, SellBikeSubmission, ConditionGrade, ActivePage } from '../types/bike';
 import { formatBDT } from '../utils/formatters';
+import { POPULAR_BRANDS } from '../utils/brandLogos';
+import { BrandLogo } from '../components/common/BrandLogo';
+import { BRAND_MODELS_DB, autoDetectBrakingSystem, detectFuelSupply } from '../utils/motorcycleDatabase';
+import { handleNumericKeyDown, sanitizeNumeric, handleTextOnlyKeyDown, sanitizeTextOnly } from '../utils/inputValidation';
 import { 
   SlidersHorizontal, 
   Layers, 
@@ -24,7 +28,9 @@ import {
   FileText,
   UploadCloud,
   FileCheck,
-  Check
+  Check,
+  Zap,
+  Lock
 } from 'lucide-react';
 
 interface AdminPageProps {
@@ -62,12 +68,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   // Form Fields for Add/Edit as requested by user:
   // Brand, Model Name, MFG Year, Reg year, reg Number, buying price, Asking price, Document (Pdf)
   const [formBrand, setFormBrand] = useState('Yamaha');
+  const [formCustomBrand, setFormCustomBrand] = useState('');
+  const [isCustomBrand, setIsCustomBrand] = useState(false);
+  const [formBrandLogoUrl, setFormBrandLogoUrl] = useState('');
   const [formModel, setFormModel] = useState('');
   const [formMfgYear, setFormMfgYear] = useState<number>(2023);
   const [formRegYear, setFormRegYear] = useState<number>(2023);
+  const [formIsOnTest, setFormIsOnTest] = useState<boolean>(false);
   const [formRegNumber, setFormRegNumber] = useState('');
-  const [formBuyingPrice, setFormBuyingPrice] = useState<number>(260000);
-  const [formAskingPrice, setFormAskingPrice] = useState<number>(325000);
+  const [formBuyingPrice, setFormBuyingPrice] = useState<number>(250000);
+  const [formAskingPrice, setFormAskingPrice] = useState<number>(300000);
   const [formDocumentPdfName, setFormDocumentPdfName] = useState('BRTA_Clearance_Doc.pdf');
   const [formDocumentPdfUrl, setFormDocumentPdfUrl] = useState('');
 
@@ -77,21 +87,56 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [formMileage, setFormMileage] = useState(6500);
   const [formGrade, setFormGrade] = useState<ConditionGrade>('A+');
   const [formCategory, setFormCategory] = useState<'Sport' | 'Cruiser' | 'Naked' | 'Commuter' | 'Tourer' | 'Scooter'>('Sport');
+  const [formBrakingSystem, setFormBrakingSystem] = useState<string>('Dual Channel ABS');
+  const [isAutoBrakeSelected, setIsAutoBrakeSelected] = useState<boolean>(true);
   const [formStatus, setFormStatus] = useState<'Available' | 'Reserved' | 'Sold'>('Available');
 
   // Document preview state
   const [previewPdfBike, setPreviewPdfBike] = useState<Bike | null>(null);
 
+  const CURRENT_YEAR = new Date().getFullYear();
+  const ALL_MFG_YEARS = Array.from({ length: CURRENT_YEAR - 2010 + 1 }, (_, i) => CURRENT_YEAR - i);
+  const availableRegYears = ALL_MFG_YEARS.filter((yr) => yr >= formMfgYear).sort((a, b) => a - b);
+
+  const handleBuyingPriceChange = (val: number) => {
+    setFormBuyingPrice(val);
+    if (val > 0) {
+      setFormAskingPrice(Math.round(val * 1.20));
+    }
+  };
+
+  const handleMfgYearChange = (year: number) => {
+    setFormMfgYear(year);
+    if (formRegYear < year) {
+      setFormRegYear(year);
+    }
+  };
+
+  const handleToggleOnTest = (checked: boolean) => {
+    setFormIsOnTest(checked);
+    if (checked) {
+      setFormRegNumber('On Test');
+    } else if (formRegNumber === 'On Test') {
+      setFormRegNumber(`Dhaka Metro-LA-55-${Math.floor(1000 + Math.random() * 9000)}`);
+    }
+  };
+
   const openAddModal = () => {
     setEditingBike(null);
     setFormBrand('Yamaha');
-    setFormModel('YZF-R15 V4');
+    setFormCustomBrand('');
+    setIsCustomBrand(false);
+    setFormBrandLogoUrl('');
+    setFormModel('YZF-R15 V4 Dual ABS');
+    setFormBrakingSystem('Dual Channel ABS');
+    setIsAutoBrakeSelected(true);
     setFormName('Yamaha YZF-R15 V4 Racing');
     setFormMfgYear(2023);
     setFormRegYear(2023);
+    setFormIsOnTest(false);
     setFormRegNumber('Dhaka Metro-LA-55-9012');
-    setFormBuyingPrice(270000);
-    setFormAskingPrice(335000);
+    setFormBuyingPrice(250000);
+    setFormAskingPrice(Math.round(250000 * 1.20));
     setFormDocumentPdfName('BRTA_Clearance_R15V4.pdf');
     setFormDocumentPdfUrl('');
     setFormCc(155);
@@ -104,11 +149,25 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   const openEditModal = (bike: Bike) => {
     setEditingBike(bike);
-    setFormBrand(bike.brand);
+    const isStandard = POPULAR_BRANDS.some((b) => b.toLowerCase() === bike.brand.toLowerCase());
+    if (isStandard) {
+      setFormBrand(bike.brand);
+      setFormCustomBrand('');
+      setIsCustomBrand(false);
+    } else {
+      setFormBrand('Other');
+      setFormCustomBrand(bike.brand);
+      setIsCustomBrand(true);
+    }
+    setFormBrandLogoUrl(bike.brandLogoUrl || '');
     setFormModel(bike.model || bike.name);
+    setFormBrakingSystem(bike.brakingSystem || bike.specs?.brakingSystem || 'Single Channel ABS');
+    setIsAutoBrakeSelected(false);
     setFormName(bike.name);
     setFormMfgYear(bike.mfgYear || bike.year || 2023);
     setFormRegYear(bike.regYear || bike.year || 2023);
+    const isOnTest = (bike.regNumber || '').toLowerCase().includes('on test');
+    setFormIsOnTest(isOnTest);
     setFormRegNumber(bike.regNumber || bike.inspection?.registrationNumber || 'Dhaka Metro-LA-12-3456');
     setFormBuyingPrice(bike.buyingPrice || Math.round((bike.askingPrice || bike.price) * 0.82));
     setFormAskingPrice(bike.askingPrice || bike.price);
@@ -124,21 +183,25 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   const handleSaveBike = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formBrand || !formModel) return;
+    const finalBrand = (isCustomBrand && formCustomBrand.trim()) ? formCustomBrand.trim() : formBrand;
+    if (!finalBrand || !formModel) return;
 
-    const computedName = formName.trim() ? formName.trim() : `${formBrand} ${formModel}`;
+    const computedName = formName.trim() ? formName.trim() : `${finalBrand} ${formModel}`;
 
     if (editingBike) {
       // Update existing bike
       const updated: Bike = {
         ...editingBike,
         name: computedName,
-        brand: formBrand,
+        brand: finalBrand,
+        brandLogoUrl: formBrandLogoUrl.trim() || undefined,
         model: formModel,
+        brakingSystem: formBrakingSystem,
         mfgYear: Number(formMfgYear),
-        regYear: Number(formRegYear),
+        regYear: formIsOnTest ? Number(formMfgYear) : Number(formRegYear),
         year: Number(formMfgYear),
-        regNumber: formRegNumber,
+        regNumber: formIsOnTest ? 'On Test' : formRegNumber,
+        registrationYear: formIsOnTest ? Number(formMfgYear) : Number(formRegYear),
         buyingPrice: Number(formBuyingPrice),
         askingPrice: Number(formAskingPrice),
         price: Number(formAskingPrice),
@@ -161,12 +224,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       const newBike: Bike = {
         id: `bike-${Date.now()}`,
         name: computedName,
-        brand: formBrand,
+        brand: finalBrand,
+        brandLogoUrl: formBrandLogoUrl.trim() || undefined,
         model: formModel,
+        brakingSystem: formBrakingSystem,
         mfgYear: Number(formMfgYear),
-        regYear: Number(formRegYear),
+        regYear: formIsOnTest ? Number(formMfgYear) : Number(formRegYear),
         year: Number(formMfgYear),
-        regNumber: formRegNumber,
+        regNumber: formIsOnTest ? 'On Test' : formRegNumber,
+        registrationYear: formIsOnTest ? Number(formMfgYear) : Number(formRegYear),
         buyingPrice: Number(formBuyingPrice),
         askingPrice: Number(formAskingPrice),
         price: Number(formAskingPrice),
@@ -185,7 +251,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         featured: false,
         inStock: true,
         status: formStatus,
-        registrationYear: Number(formRegYear),
         registrationCity: 'Dhaka BRTA',
         ownersCount: 1,
         warrantyMonths: 12,
@@ -815,18 +880,64 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               {/* Field Group 1: Brand & Model Name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-300 block mb-1">
-                    Brand (ব্র্যান্ড) *
-                  </label>
-                  <select
-                    value={formBrand}
-                    onChange={(e) => setFormBrand(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500"
-                  >
-                    {['Yamaha', 'Honda', 'Bajaj', 'Suzuki', 'TVS', 'KTM', 'Royal Enfield', 'Kawasaki', 'Hero'].map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-300">
+                      Brand (ব্র্যান্ড) *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !isCustomBrand;
+                        setIsCustomBrand(next);
+                        if (next) {
+                          setFormCustomBrand('');
+                        }
+                      }}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 font-medium cursor-pointer"
+                    >
+                      {isCustomBrand ? 'তালিকা থেকে সিলেক্ট করুন' : '+ অন্য কোনো ব্র্যান্ড'}
+                    </button>
+                  </div>
+
+                  {isCustomBrand ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          required
+                          value={formCustomBrand}
+                          onChange={(e) => {
+                            setFormCustomBrand(e.target.value);
+                            setFormBrand(e.target.value);
+                          }}
+                          placeholder="যেকোনো ব্র্যান্ড লিখুন (যেমন: BMW, Runner, GPX...)"
+                          className="flex-1 bg-slate-950 border border-cyan-500/60 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-400 font-semibold"
+                        />
+                        <div className="w-12 h-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-sm" title="Auto Brand Logo Preview">
+                          <BrandLogo brand={formCustomBrand || 'Other'} size="sm" customLogoUrl={formBrandLogoUrl} />
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span>ব্র্যান্ডের আসল লোগো স্বয়ংক্রিয়ভাবে ডিটেক্ট হবে</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={formBrand}
+                        onChange={(e) => setFormBrand(e.target.value)}
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500 font-semibold"
+                      >
+                        {POPULAR_BRANDS.map((b) => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                      <div className="w-12 h-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-sm" title="Auto Brand Logo Preview">
+                        <BrandLogo brand={formBrand} size="sm" customLogoUrl={formBrandLogoUrl} />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -837,17 +948,82 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     type="text"
                     required
                     value={formModel}
-                    onChange={(e) => setFormModel(e.target.value)}
-                    placeholder="e.g. YZF-R15 V4 Dual ABS"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormModel(val);
+                      const currentBrand = (isCustomBrand && formCustomBrand.trim()) ? formCustomBrand.trim() : formBrand;
+                      const detected = autoDetectBrakingSystem(currentBrand, val);
+                      setFormBrakingSystem(detected.brakingSystem);
+                      if (detected.cc) setFormCc(detected.cc);
+                      if (detected.category) setFormCategory(detected.category);
+                      setIsAutoBrakeSelected(detected.isAutoMatched);
+                    }}
+                    placeholder="e.g. YZF-R15 V4 Dual ABS, FZ-S V3, Pulsar N160..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500 font-semibold"
                   />
+                </div>
+              </div>
+
+              {/* Quick Model Presets for Brand */}
+              {(() => {
+                const currentBrand = (isCustomBrand && formCustomBrand.trim()) ? formCustomBrand.trim() : formBrand;
+                const models = BRAND_MODELS_DB[currentBrand.toLowerCase()] || [];
+                if (models.length === 0) return null;
+                return (
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-cyan-400 font-bold flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-cyan-400" />
+                      <span>{currentBrand}-এর মডেল নির্বাচন (ক্লিক করলেই ব্রেকিং সিস্টেম অটো সেট হবে):</span>
+                    </span>
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                      {models.map((m) => (
+                        <button
+                          key={m.model}
+                          type="button"
+                          onClick={() => {
+                            setFormModel(m.model);
+                            setFormBrakingSystem(m.brakingSystem);
+                            setFormCc(m.cc);
+                            setFormCategory(m.category);
+                            setFormName(`${currentBrand} ${m.model}`);
+                            setIsAutoBrakeSelected(true);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold shrink-0 transition-all border cursor-pointer active:scale-95 ${
+                            formModel === m.model
+                              ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm'
+                              : 'bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white border-slate-800'
+                          }`}
+                        >
+                          <span>{m.model}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Braking System: Strictly Auto-Calculated, Manual change disabled */}
+              <div className="p-3 bg-slate-950/90 rounded-xl border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-cyan-300 font-bold text-xs flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                    <span>Braking System (ব্রেকিং সিস্টেম)</span>
+                  </label>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
+                    <Lock className="w-3 h-3 text-emerald-400" />
+                    <span>মডেল অনুযায়ী অটো-সিলেক্টেড (লক করা)</span>
+                  </span>
+                </div>
+                <div className="w-full bg-slate-900 border border-slate-700/80 rounded-lg p-2.5 text-white font-mono text-xs flex items-center justify-between font-bold cursor-not-allowed select-none opacity-95">
+                  <span className="text-cyan-300 font-bold">{formBrakingSystem}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">ম্যানুয়াল পরিবর্তন করা যাবে না</span>
                 </div>
               </div>
 
               {/* Full Display Name */}
               <div>
                 <label className="font-semibold text-slate-300 block mb-1">
-                  Full Display Listing Name
+                  Full Display Listing Name (পূর্ণ নাম)
                 </label>
                 <input
                   type="text"
@@ -858,49 +1034,82 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 />
               </div>
 
+              {/* On-Test Checkbox */}
+              <div className="flex items-center justify-between p-2.5 bg-slate-950 rounded-lg border border-slate-800 text-xs">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="admin-ontest-checkbox"
+                    checked={formIsOnTest}
+                    onChange={(e) => handleToggleOnTest(e.target.checked)}
+                    className="w-4 h-4 rounded accent-cyan-500 cursor-pointer"
+                  />
+                  <label htmlFor="admin-ontest-checkbox" className="text-white font-semibold cursor-pointer select-none">
+                    Bike On-Test (আনরেজিস্টার্ড / রেজিস্ট্রেশন এখনো হয়নি)
+                  </label>
+                </div>
+                {formIsOnTest && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
+                    On-Test Active
+                  </span>
+                )}
+              </div>
+
               {/* Field Group 2: MFG Year, Reg Year, Reg Number */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* MFG Dropdown (Name changed to MFG, 2010 to Running Year) */}
                 <div>
                   <label className="font-semibold text-slate-300 block mb-1">
-                    MFG Year (তৈরির বছর) *
+                    MFG *
                   </label>
-                  <input
-                    type="number"
-                    required
-                    min={2005}
-                    max={2026}
+                  <select
                     value={formMfgYear}
-                    onChange={(e) => setFormMfgYear(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono focus:outline-none focus:border-cyan-500"
-                  />
+                    onChange={(e) => handleMfgYearChange(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+                  >
+                    {ALL_MFG_YEARS.map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div>
-                  <label className="font-semibold text-slate-300 block mb-1">
-                    Reg Year (রেজিস্ট্রেশন বছর) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min={2005}
-                    max={2026}
-                    value={formRegYear}
-                    onChange={(e) => setFormRegYear(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono focus:outline-none focus:border-cyan-500"
-                  />
-                </div>
+                {/* Reg Year Dropdown (Hidden if Bike On-Test, only >= MFG Year up to running year) */}
+                {!formIsOnTest ? (
+                  <div>
+                    <label className="font-semibold text-slate-300 block mb-1">
+                      Reg Year *
+                    </label>
+                    <select
+                      value={formRegYear}
+                      onChange={(e) => setFormRegYear(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-cyan-400 font-mono font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+                    >
+                      {availableRegYears.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
 
-                <div>
+                {/* Reg Number */}
+                <div className={formIsOnTest ? 'sm:col-span-2' : ''}>
                   <label className="font-semibold text-slate-300 block mb-1">
-                    Reg Number (রেজিস্ট্রেশন নাম্বার) *
+                    Reg Number *
                   </label>
                   <input
                     type="text"
                     required
-                    value={formRegNumber}
+                    disabled={formIsOnTest}
+                    value={formIsOnTest ? 'On Test' : formRegNumber}
                     onChange={(e) => setFormRegNumber(e.target.value)}
                     placeholder="e.g. Dhaka Metro-LA-55-9012"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-cyan-400 font-mono font-bold focus:outline-none focus:border-cyan-500"
+                    className={`w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 font-mono font-bold focus:outline-none focus:border-cyan-500 ${
+                      formIsOnTest ? 'text-amber-400 opacity-80 cursor-not-allowed' : 'text-cyan-400'
+                    }`}
                   />
                 </div>
               </div>
@@ -908,9 +1117,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               {/* Field Group 3: Buying Price & Asking Price in BDT */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-950/80 rounded-xl border border-slate-800">
                 <div>
-                  <label className="font-semibold text-slate-300 block mb-1">
-                    Buying Price (ক্রয় মূল্য - BDT ৳) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-300">
+                      Buying Price (ক্রয় মূল্য - BDT ৳) *
+                    </label>
+                  </div>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 font-bold text-slate-400">৳</span>
                     <input
@@ -918,8 +1129,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                       required
                       step="1000"
                       value={formBuyingPrice}
-                      onChange={(e) => setFormBuyingPrice(Number(e.target.value))}
-                      placeholder="260000"
+                      onChange={(e) => handleBuyingPriceChange(Number(e.target.value))}
+                      placeholder="250000"
                       className="w-full pl-8 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
                     />
                   </div>
@@ -929,23 +1140,29 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-300 block mb-1">
-                    Asking Price (বিক্রয় মূল্য - BDT ৳) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-300">
+                      Asking Price (বিক্রয় মূল্য - BDT ৳) *
+                    </label>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      ক্রয়মূল্যের ২০% বেশি (+20% Auto)
+                    </span>
+                  </div>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5 font-bold text-cyan-400">৳</span>
+                    <span className="absolute left-3 top-2.5 font-bold text-emerald-400">৳</span>
                     <input
                       type="number"
                       required
                       step="1000"
                       value={formAskingPrice}
                       onChange={(e) => setFormAskingPrice(Number(e.target.value))}
-                      placeholder="325000"
-                      className="w-full pl-8 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-emerald-400 font-mono font-bold focus:outline-none focus:border-cyan-500"
+                      placeholder="300000"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-lg text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-400"
                     />
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1 font-mono">
-                    Formatted: {formatBDT(formAskingPrice)}
+                  <div className="text-[11px] text-emerald-400/80 mt-1 font-mono flex items-center justify-between">
+                    <span>Formatted: {formatBDT(formAskingPrice)}</span>
+                    <span className="text-[9px] text-slate-400">প্রফিট: {formatBDT(formAskingPrice - formBuyingPrice)}</span>
                   </div>
                 </div>
               </div>
